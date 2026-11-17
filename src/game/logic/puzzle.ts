@@ -48,7 +48,7 @@ export const PANTRY: PuzzleLayout = {
     { id: 'b', x: 0.65, y: 0.44, w: 0.88, h: 0.88 },
   ],
   feather: { x: 7.15, y: 1.15, w: 0.95, h: 1.2 },
-  spawn: { x: -7.15, y: 0.62 },
+  spawn: { x: -6.3, y: 0.62 },
 };
 
 interface CrateBody {
