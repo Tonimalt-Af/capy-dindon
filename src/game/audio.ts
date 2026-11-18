@@ -145,6 +145,12 @@ const SONGS: Record<string, Song> = {
   },
 };
 
+function songIdGain(id: string): number {
+  if (id === 'parade') return 0.03;
+  if (id === 'glands') return 0.02;
+  return 0.012;
+}
+
 function midiHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
@@ -222,6 +228,7 @@ export class AudioBus {
           if (Math.abs(note.beat - slot) < 0.01) this.voice(time, midiHz(note.midi), note.len * beat, track);
         }
       }
+      if (this.noise && slot % 2 === 0) this.hat(time, songIdGain(this.songId));
       this.nextBeat += 1;
       guard += 1;
     }
@@ -280,31 +287,51 @@ export class AudioBus {
     src.stop(time + dur);
   }
 
+  private hat(time: number, amount: number): void {
+    if (!this.ctx || !this.musicGain || !this.noise) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 3800;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(amount, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicGain);
+    src.start(time);
+    src.stop(time + 0.05);
+  }
+
   jump(): void {
     if (!this.ctx || !this.sfxGain) return;
     const time = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(320, time);
-    osc.frequency.exponentialRampToValueAtTime(680, time + 0.12);
+    osc.frequency.setValueAtTime(280, time);
+    osc.frequency.exponentialRampToValueAtTime(760, time + 0.13);
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(0.12, time + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);
+    gain.gain.exponentialRampToValueAtTime(0.13, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.16);
     osc.connect(gain);
     gain.connect(this.sfxGain);
     osc.start(time);
-    osc.stop(time + 0.16);
+    osc.stop(time + 0.18);
+    this.puff(0.06, 0.045, 980);
   }
 
   land(): void {
-    this.puff(0.08, 0.08, 240);
+    this.puff(0.1, 0.11, 170);
+    this.tone(120, 0.07, 'sine', 0.06);
   }
 
   collect(): void {
-    this.tone(880, 0.09, 'sine', 0.08);
-    this.tone(1175, 0.12, 'sine', 0.07, 0.06);
-    this.tone(1568, 0.16, 'sine', 0.06, 0.12);
+    this.tone(784, 0.08, 'triangle', 0.07);
+    this.tone(1046, 0.1, 'sine', 0.07, 0.045);
+    this.tone(1318, 0.12, 'sine', 0.06, 0.09);
+    this.tone(1976, 0.14, 'sine', 0.045, 0.14);
   }
 
   win(): void {
@@ -317,7 +344,8 @@ export class AudioBus {
   }
 
   click(): void {
-    this.tone(660, 0.05, 'sine', 0.05);
+    this.tone(720, 0.045, 'sine', 0.05);
+    this.tone(980, 0.06, 'triangle', 0.03, 0.02);
   }
 
   push(): void {
@@ -325,12 +353,31 @@ export class AudioBus {
   }
 
   turkey(): void {
-    this.tone(520, 0.08, 'square', 0.04);
-    this.tone(690, 0.1, 'square', 0.035, 0.05);
+    if (!this.ctx || !this.sfxGain) return;
+    const time = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(900, time);
+    osc.frequency.setValueAtTime(220, time);
+    osc.frequency.linearRampToValueAtTime(480, time + 0.07);
+    osc.frequency.linearRampToValueAtTime(160, time + 0.16);
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.045, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.2);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(time);
+    osc.stop(time + 0.22);
   }
 
   bomb(): void {
-    this.puff(0.18, 0.12, 120);
+    this.puff(0.22, 0.16, 90);
+    this.tone(160, 0.18, 'sine', 0.07);
+    this.tone(80, 0.26, 'triangle', 0.05, 0.04);
   }
 
   evolve(): void {

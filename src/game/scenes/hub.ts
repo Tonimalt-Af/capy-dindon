@@ -3,7 +3,8 @@ import { Platformer } from '../logic/physics';
 import type { Solid } from '../logic/types';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { archway, backdrop, dress, island, totem } from '../render/scenery';
+import { archway, dress, island, totem } from '../render/scenery';
+import { dressCamp, skyRig, type Rig } from '../render/world';
 import { PLACES, TEXT } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { ChallengeId } from '../logic/types';
@@ -30,6 +31,7 @@ export class HubScene implements Scene {
   private capy = new Capybara();
   private solids: Solid[] = [];
   private sparks: Particles | null = null;
+  private rig: Rig | null = null;
   private prompt: HTMLElement | null = null;
   private near: (typeof GATES)[number] | null = null;
   private demoWait = 0;
@@ -47,7 +49,7 @@ export class HubScene implements Scene {
     for (const plat of FLOOR) {
       const land = island(plat.w, plat.id === 'ground' ? 3.1 : 2.3, plat.id === 'ground' ? 1.5 : 0.7);
       land.position.set(plat.x, plat.top, 0);
-      if (plat.id === 'ground') dress(land, plat.w);
+      if (plat.id === 'ground') dress(land, plat.w, 'meadow');
       root.add(land);
       const h = 1.4;
       this.solids.push({ id: plat.id, x: plat.x, y: plat.top - h / 2, w: plat.w, h, dx: 0, dy: 0 });
@@ -58,11 +60,13 @@ export class HubScene implements Scene {
     root.add(mark);
     for (const gate of GATES) {
       if (gate.id === 'totem') continue;
-      const arch = archway(save.data.challenges[gate.id]);
+      const arch = archway(save.data.challenges[gate.id], gate.id);
       arch.position.set(gate.x, 0, -0.2);
       root.add(arch);
     }
-    backdrop(root);
+    dressCamp(root);
+    this.rig = skyRig(root, save.data.stage === 1 ? 'golden' : 'camp', 40);
+    this.rig.adopt(root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     root.add(this.capy.root);
@@ -117,7 +121,11 @@ export class HubScene implements Scene {
       this.ctx.audio.jump();
       this.ctx.buzz(12);
     }
-    if (motion.landed) this.ctx.audio.land();
+    if (motion.landed) {
+      this.ctx.audio.land();
+      this.ctx.stage.nudge(0.14, this.ctx.reduced());
+      this.sparks?.dust(this.player.x, 0.08, 0.4);
+    }
     if (this.player.y < -4) {
       this.player.x = -3.4;
       this.player.y = 1.2;
@@ -126,8 +134,10 @@ export class HubScene implements Scene {
     }
     this.capy.root.position.set(this.player.x, this.player.y - this.player.h / 2, 0.4);
     this.capy.turn(this.player.facing);
+    this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.player.vx), vy: this.player.vy, grounded: this.player.grounded, landed: motion.landed });
-    this.ctx.stage.follow(this.player.x, 0.8, 11, this.player.facing * 0.8);
+    this.ctx.stage.follow(this.player.x, 0.8, 10.6, this.player.facing * 0.8);
+    this.rig?.update(dt, this.ctx.reduced(), this.player.x);
     this.sparks?.update(dt, this.player.x);
     this.near = GATES.find((gate) => Math.abs(this.player.x - gate.x) < 0.85) ?? null;
     if (this.prompt) {

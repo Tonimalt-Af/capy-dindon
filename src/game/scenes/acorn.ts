@@ -3,7 +3,8 @@ import { AcornSim, acornIntent, sampleLevel } from '../logic/acorn';
 import type { SimEvent } from '../logic/types';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { acornModel, archway, backdrop, dress, island, pumpkinModel } from '../render/scenery';
+import { acornModel, archway, dress, island, pumpkinModel } from '../render/scenery';
+import { skyRig, type Rig } from '../render/world';
 import { HELP, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -21,6 +22,7 @@ export class AcornScene implements Scene {
   private islands = new Map<string, THREE.Object3D>();
   private hold = 0;
   private sparks: Particles | null = null;
+  private rig: Rig | null = null;
   private finished = false;
   private countEl: HTMLElement | null = null;
 
@@ -41,7 +43,7 @@ export class AcornScene implements Scene {
       const land = island(plat.w, 2.4, 1.25);
       const top = solid.y + solid.h / 2;
       land.position.set(plat.x, top, 0);
-      if (plat.w > 4) dress(land, plat.w);
+      dress(land, plat.w, 'orchard');
       root.add(land);
       this.islands.set(plat.id, land);
     });
@@ -59,7 +61,8 @@ export class AcornScene implements Scene {
     this.glow.position.y = 1.2;
     this.portal.add(this.glow);
     root.add(this.portal);
-    backdrop(root);
+    this.rig = skyRig(root, 'orchard', 70);
+    this.rig.adopt(root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     root.add(this.capy.root);
@@ -147,30 +150,43 @@ export class AcornScene implements Scene {
       if (event.type === 'jump') {
         this.ctx.audio.jump();
         this.ctx.buzz(12);
-      } else if (event.type === 'land') this.ctx.audio.land();
-      else if (event.type === 'collect') {
+      } else if (event.type === 'land') {
+        this.ctx.audio.land();
+        this.ctx.stage.nudge(0.16, this.ctx.reduced());
+        this.sparks?.dust(event.x, event.y, 0.3);
+      } else if (event.type === 'collect') {
         this.ctx.audio.collect();
         this.ctx.buzz([8, 24, 10]);
-        this.sparks?.burst(event.x, event.y, 0.3, 10, '#ffd56a');
+        this.ctx.stage.impact(0.045, 0.06, this.ctx.reduced());
+        this.sparks?.burst(event.x, event.y, 0.3, 12, '#ffd56a');
+        this.sparks?.ring(event.x, event.y, 0.3, '#fff1b0');
         this.capy.setMood('happy');
         window.setTimeout(() => this.capy.setMood('idle'), 500);
         this.refreshCount();
       } else if (event.type === 'bonk') {
         this.ctx.audio.bomb();
-        this.ctx.stage.kick(0.12, this.ctx.reduced());
+        this.ctx.stage.impact(0.07, 0.16, this.ctx.reduced());
+        this.capy.setMood('wow');
+        window.setTimeout(() => this.capy.setMood('idle'), 280);
         if (this.ctx.subtitles()) this.ctx.ui.toast(TEXT.oups);
       } else if (event.type === 'respawn' && this.ctx.subtitles()) this.ctx.ui.toast(TEXT.oups);
     }
   }
 
   private refreshCount(): void {
-    if (this.countEl) this.countEl.textContent = `${this.sim.collected.size}/8`;
+    if (this.countEl) {
+      this.countEl.textContent = `${this.sim.collected.size}/8`;
+      this.countEl.classList.remove('pop');
+      void this.countEl.offsetWidth;
+      this.countEl.classList.add('pop');
+    }
   }
 
   private sync(dt: number): void {
     const player = this.sim.player;
     this.capy.root.position.set(player.x, player.y - player.h / 2, 0.35);
     this.capy.turn(player.facing);
+    this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(player.vx), vy: player.vy, grounded: player.grounded, landed: false });
     for (const [id, model] of this.acorns) {
       model.visible = !this.sim.collected.has(id);
@@ -184,7 +200,8 @@ export class AcornScene implements Scene {
     }
     if (this.glow) this.glow.intensity = this.sim.collected.size >= 8 ? 2.2 : 0;
     this.sparks?.update(dt, player.x);
-    this.ctx.stage.follow(player.x, Math.max(0.6, player.y), 11, player.facing * 1.1);
+    this.rig?.update(dt, this.ctx.reduced(), player.x);
+    this.ctx.stage.follow(player.x, Math.max(0.6, player.y), 10.6, player.facing * 1.1);
     for (const plat of this.sim.level.platforms) {
       if (!plat.mover) continue;
       const solid = this.sim.solids.find((s) => s.id === plat.id);

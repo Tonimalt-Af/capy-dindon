@@ -39,27 +39,31 @@ function png(size, pixel) {
 }
 
 function capy(u, v) {
-  const skyTop = [143, 212, 255];
-  const skyBot = [255, 214, 186];
+  const skyTop = [47, 143, 230];
+  const skyBot = [255, 196, 138];
   const mix = skyTop.map((c, i) => Math.round(c + (skyBot[i] - c) * v));
   const dx = u - 0.5;
   const dy = v - 0.5;
   if (dx * dx + dy * dy > 0.46) return [...mix, 0];
-  const body = (u - 0.46) ** 2 / 0.16 + (v - 0.58) ** 2 / 0.08;
-  const head = (u - 0.66) ** 2 / 0.055 + (v - 0.46) ** 2 / 0.05;
-  const ear = (u - 0.58) ** 2 / 0.02 + (v - 0.34) ** 2 / 0.028;
-  const feather = u > 0.18 && u < 0.34 && v < 0.42 && v > 0.18 && (v - 0.42) < (u - 0.18) * 1.2;
-  if (feather) return [242, 193, 78, 255];
-  if (head < 1 || ear < 1) {
-    const eye = (u - 0.7) ** 2 + (v - 0.44) ** 2 < 0.0012;
-    const pupil = (u - 0.71) ** 2 + (v - 0.445) ** 2 < 0.00035;
-    const nose = (u - 0.78) ** 2 / 0.004 + (v - 0.48) ** 2 / 0.003 < 1;
-    if (pupil) return [43, 33, 28, 255];
-    if (eye) return [255, 250, 244, 255];
-    if (nose) return [92, 61, 50, 255];
-    return [211, 154, 98, 255];
+  const feather = u > 0.12 && u < 0.32 && v < 0.42 && v > 0.16 && (v - 0.42) < (0.32 - u) * 1.3;
+  const body = (u - 0.42) ** 2 / 0.14 + (v - 0.62) ** 2 / 0.07;
+  const head = u > 0.52 && u < 0.68 && v > 0.4 && v < 0.58;
+  const snout = u > 0.64 && u < 0.84 && v > 0.48 && v < 0.64;
+  const ear = (u - 0.56) ** 2 / 0.012 + (v - 0.34) ** 2 / 0.02;
+  if (feather) return [246, 196, 83, 255];
+  if (snout) {
+    const nose = (u - 0.78) ** 2 / 0.003 + (v - 0.55) ** 2 / 0.002 < 1;
+    if (nose) return [58, 36, 24, 255];
+    return [240, 208, 174, 255];
   }
-  if (body < 1) return [198, 134, 74, 255];
+  if (head || ear < 1) {
+    const eye = (u - 0.6) ** 2 + (v - 0.44) ** 2 < 0.0011;
+    const pupil = (u - 0.61) ** 2 + (v - 0.445) ** 2 < 0.00032;
+    if (pupil) return [26, 18, 14, 255];
+    if (eye) return [255, 250, 246, 255];
+    return [215, 163, 106, 255];
+  }
+  if (body < 1) return [196, 124, 60, 255];
   return [...mix, 255];
 }
 

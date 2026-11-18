@@ -204,7 +204,8 @@ export class Game {
     this.input.begin();
     if (this.input.frame.pausePressed) this.togglePause();
     const frozen = this.paused || this.pauseLocked || this.portrait.matches;
-    if (!frozen) this.scene?.update(dt);
+    const step = this.stage.scaleTime(dt);
+    if (!frozen) this.scene?.update(step);
     this.audio.update();
     const started = performance.now();
     this.stage.render(dt, this.save.data.settings.reducedMotion);

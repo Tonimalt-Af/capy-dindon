@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { createParade, paradeBotAction, PARADE, stepParade, type ParadeState } from '../logic/parade';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { backdrop, banner, island, pumpkinModel, turkeyModel } from '../render/scenery';
+import { banner, island, pumpkinModel, turkeyModel } from '../render/scenery';
+import { dressParade, mound, skyRig, type Rig } from '../render/world';
 import { HELP, LOSE, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -17,6 +18,8 @@ export class ParadeScene implements Scene {
   private capy = new Capybara();
   private actors: { turkey: THREE.Object3D; bomb: THREE.Object3D }[] = [];
   private sparks: Particles | null = null;
+  private rig: Rig | null = null;
+  private party = 0;
   private finished = false;
   private capyX = -4.6;
   private whackX = -4.6;
@@ -37,7 +40,7 @@ export class ParadeScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('party');
-    stage.hold(0, 1.35, 15);
+    stage.hold(0, 1.05, 11.4);
     audio.playSong('parade');
     const root = stage.root;
     const deck = island(12, 3.2, 1.1);
@@ -47,9 +50,10 @@ export class ParadeScene implements Scene {
     sign.position.set(0, 2.5, -0.8);
     root.add(sign);
     HOLES.forEach((x) => {
-      const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.2, 16), new THREE.MeshToonMaterial({ color: '#5c3d32' }));
+      const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.2, 16), new THREE.MeshToonMaterial({ color: '#3a2418' }));
       hole.position.set(x, 0.05, 0.1);
       root.add(hole);
+      root.add(mound(x));
       const turkey = turkeyModel();
       const bomb = pumpkinModel();
       turkey.position.set(x, -0.4, 0.15);
@@ -57,7 +61,9 @@ export class ParadeScene implements Scene {
       root.add(turkey, bomb);
       this.actors.push({ turkey, bomb });
     });
-    backdrop(root);
+    dressParade(root);
+    this.rig = skyRig(root, 'party', 36);
+    this.rig.adopt(root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     this.capy.root.position.set(-4.6, 0, 0.7);
@@ -158,11 +164,13 @@ export class ParadeScene implements Scene {
         this.ctx.audio.turkey();
         this.ctx.buzz(12);
         this.whackX = HOLES[whack ?? this.state.selector] ?? this.whackX;
-        this.sparks?.burst(this.whackX, 1.1, 0.2, 8, '#ffe08a');
+        this.ctx.stage.impact(0.04, 0.07, this.ctx.reduced());
+        this.sparks?.burst(this.whackX, 1.1, 0.2, 10, '#ffe08a');
+        this.sparks?.confetti(this.whackX, 1.4, 0);
         this.capy.setMood('happy');
       } else if (event === 'bomb') {
         this.ctx.audio.bomb();
-        this.ctx.stage.kick(0.15, this.ctx.reduced());
+        this.ctx.stage.impact(0.08, 0.18, this.ctx.reduced());
         this.ctx.buzz(30);
         this.capy.setMood('wow');
       }
@@ -184,7 +192,14 @@ export class ParadeScene implements Scene {
     this.capyX += (this.whackX - this.capyX) * Math.min(1, dt * 6);
     this.capy.root.position.set(Math.min(-2.2, this.capyX), 0, 0.85);
     this.capy.turn(1);
+    this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.whackX - this.capyX), vy: 0, grounded: true, landed: false });
+    this.rig?.update(dt, this.ctx.reduced(), 0);
+    this.party += dt;
+    if (!this.ctx.reduced() && this.party > 0.55) {
+      this.party = 0;
+      this.sparks?.confetti((Math.random() - 0.5) * 6, 2.6, -0.3);
+    }
     if (this.scoreEl) this.scoreEl.textContent = `${this.state.score}/${PARADE.target}`;
     if (this.timeEl) this.timeEl.textContent = String(Math.ceil(this.state.timeLeft));
     this.sparks?.update(dt, 0);

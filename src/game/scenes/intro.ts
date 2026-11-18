@@ -23,7 +23,7 @@ export class IntroScene implements Scene {
     stage.clear();
     this.grove = createGrove(0);
     stage.root.add(this.grove.group);
-    stage.hold(0.7, 1.1, 10.4);
+    stage.hold(1.05, 1.0, 9.4);
     audio.playSong('title');
     if (this.ctx.flags.shot === 'intro') this.beat = 1;
     this.renderBeat(this.ctx.flags.shot === 'intro');
@@ -82,7 +82,11 @@ export class IntroScene implements Scene {
     this.beatTime += dt;
     const grove = this.grove;
     if (!grove) return;
+    grove.capy.calm = this.ctx.reduced();
     grove.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
+    grove.legend.calm = this.ctx.reduced();
+    grove.legend.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
+    grove.rig.update(dt, this.ctx.reduced(), 0);
     if (this.beat === 1) {
       const y = 3.2 - Math.min(1, this.beatTime / 1.1) * 2;
       grove.feather.position.y = Math.max(1.15, y);
