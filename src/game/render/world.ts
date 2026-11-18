@@ -1,14 +1,17 @@
 import * as THREE from 'three';
-import { basic, GEO, toon, wallTexture } from './materials';
+import { basic, GEO, leafTexture, toon, trackTime, wallTexture } from './materials';
 import {
   bird,
   butterfly,
   campfire,
+  candle,
   cloud,
   flutter,
   jar,
   planet,
+  bush,
   reed,
+  rock,
   tent,
   tree,
   type SkyTheme,
@@ -35,6 +38,12 @@ interface Bob {
   base: number;
 }
 
+interface Dust {
+  obj: THREE.Object3D;
+  base: THREE.Vector3;
+  phase: number;
+}
+
 export class Rig {
   time = 0;
   private readonly seen = new Set<THREE.Object3D>();
@@ -43,8 +52,12 @@ export class Rig {
   private readonly birds: BirdPath[] = [];
   private readonly bugs: Bob[] = [];
   private readonly flames: { obj: THREE.Object3D; base: THREE.Vector3 }[] = [];
+  private readonly dusts: Dust[] = [];
 
-  constructor(private readonly far: THREE.Group | null, private readonly mid: THREE.Group | null) {}
+  constructor(
+    private readonly far: THREE.Group | null,
+    private readonly mid: THREE.Group | null,
+  ) {}
 
   adopt(root: THREE.Object3D): void {
     root.traverse((obj) => {
@@ -82,6 +95,9 @@ export class Rig {
       } else if (role === 'flame') {
         this.seen.add(obj);
         this.flames.push({ obj, base: obj.scale.clone() });
+      } else if (role === 'dust') {
+        this.seen.add(obj);
+        this.dusts.push({ obj, base: obj.position.clone(), phase: Math.random() * 6 });
       }
     });
   }
@@ -89,8 +105,8 @@ export class Rig {
   update(dt: number, reduced: boolean, cameraX: number): void {
     const pace = reduced ? 0.25 : 1;
     this.time += dt * pace;
-    if (this.far) this.far.position.x = cameraX * 0.78;
-    if (this.mid) this.mid.position.x = cameraX * 0.46;
+    if (this.far) this.far.position.x = cameraX * 0.86;
+    if (this.mid) this.mid.position.x = cameraX * 0.48;
     for (const sway of this.sways) {
       sway.obj.rotation.z = sway.base + Math.sin(this.time * 1.7 + sway.phase) * sway.amp;
     }
@@ -112,15 +128,25 @@ export class Rig {
       const flicker = 0.88 + Math.sin(this.time * 17 + flame.obj.position.x) * 0.12;
       flame.obj.scale.copy(flame.base).multiplyScalar(flicker);
     }
+    for (const mote of this.dusts) {
+      const wobble = Math.sin(this.time * 0.7 + mote.phase);
+      mote.obj.position.set(
+        mote.base.x + Math.sin(this.time * 0.35 + mote.phase) * 0.35,
+        mote.base.y + wobble * 0.22,
+        mote.base.z,
+      );
+    }
   }
 }
 
 export function skyRig(parent: THREE.Object3D, theme: SkyTheme, span = 42): Rig {
   const far = new THREE.Group();
   const mid = new THREE.Group();
+  const frame = new THREE.Group();
   far.name = 'far';
   mid.name = 'mid';
-  parent.add(far, mid);
+  frame.name = 'frame';
+  parent.add(far, mid, frame);
   const planets = theme === 'party'
     ? [
         { x: -14, y: 6.4, z: -26, r: 2.4, c: '#ff8fb8' },
@@ -145,13 +171,8 @@ export function skyRig(parent: THREE.Object3D, theme: SkyTheme, span = 42): Rig 
     body.position.set(spec.x, spec.y, spec.z);
     far.add(body);
   }
-  const hills = theme === 'party' ? ['#ff8fb8', '#c9a6ff'] : theme === 'golden' ? ['#e0944a', '#c46a32'] : ['#2f6a38', '#3f8a48'];
-  hills.forEach((color, i) => {
-    const hill = new THREE.Mesh(GEO.sphere, toon(color));
-    hill.scale.set(16 + i * 6, 4.2, 6);
-    hill.position.set(-18 + i * 22, -1.2, -16 - i);
-    far.add(hill);
-  });
+  layHills(far, mid, theme);
+  dressHorizon(mid, theme);
   const seaCount = Math.round(span / 3.2);
   for (let i = 0; i < seaCount; i++) {
     const puff = cloud();
@@ -160,7 +181,7 @@ export function skyRig(parent: THREE.Object3D, theme: SkyTheme, span = 42): Rig 
       const item = obj as THREE.Mesh;
       if (item.isMesh && item.material instanceof THREE.MeshToonMaterial) item.material = toon(tint);
     });
-    puff.position.set(-span * 0.5 + i * 3.4, -1.55 + (i % 3) * 0.18, -1.2 - (i % 4) * 0.45);
+    puff.position.set(-span * 0.5 + i * 3.4, -0.85 + (i % 3) * 0.16, -7.2 - (i % 4) * 0.3);
     puff.scale.setScalar(1.3 + (i % 3) * 0.35);
     mid.add(puff);
   }
@@ -195,9 +216,291 @@ export function skyRig(parent: THREE.Object3D, theme: SkyTheme, span = 42): Rig 
     bug.scale.multiplyScalar(0.8);
     mid.add(bug);
   }
+  frameLeaves(frame, theme);
   const rig = new Rig(far, mid);
   rig.adopt(parent);
   return rig;
+}
+
+interface HillLayer {
+  color: string;
+  lift: string;
+  z: number;
+  y: number;
+  amp: number;
+  base: number;
+  where: 'far' | 'mid' | 'near';
+}
+
+function hillPalette(theme: SkyTheme): HillLayer[] {
+  if (theme === 'party') {
+    return [
+      { color: '#f7d8ee', lift: '#f8ecff', z: -50, y: 0.15, amp: 0.5, base: 0.85, where: 'far' },
+      { color: '#eea8d0', lift: '#ffd8ef', z: -34, y: -0.05, amp: 0.65, base: 0.8, where: 'far' },
+      { color: '#ff7eae', lift: '#ffd0b0', z: -20, y: -0.28, amp: 0.8, base: 0.7, where: 'mid' },
+      { color: '#f25d90', lift: '#ffb0c8', z: -9.5, y: -0.55, amp: 1.05, base: 0.6, where: 'near' },
+    ];
+  }
+  if (theme === 'golden') {
+    return [
+      { color: '#f8dcc0', lift: '#fff4e2', z: -50, y: 0.12, amp: 0.52, base: 0.88, where: 'far' },
+      { color: '#eead68', lift: '#ffe0b4', z: -34, y: -0.08, amp: 0.68, base: 0.82, where: 'far' },
+      { color: '#d4843c', lift: '#f6b56a', z: -20, y: -0.3, amp: 0.82, base: 0.72, where: 'mid' },
+      { color: '#c46228', lift: '#e89848', z: -9.5, y: -0.55, amp: 1.02, base: 0.62, where: 'near' },
+    ];
+  }
+  const orchard = theme === 'orchard';
+  return [
+    { color: orchard ? '#dce8cc' : '#d7eee6', lift: '#f4f8ff', z: -50, y: 0.18, amp: 0.55, base: 0.9, where: 'far' },
+    { color: orchard ? '#a8cc86' : '#9cc8b2', lift: '#e8f7ee', z: -34, y: -0.02, amp: 0.72, base: 0.82, where: 'far' },
+    { color: orchard ? '#62a84a' : '#4e9a62', lift: '#d4f2bc', z: -20, y: -0.26, amp: 0.86, base: 0.7, where: 'mid' },
+    { color: orchard ? '#3d9234' : '#2f8640', lift: '#b4e67a', z: -9.5, y: -0.55, amp: 1.08, base: 0.62, where: 'near' },
+  ];
+}
+
+function crestHeight(layer: HillLayer, t: number): number {
+  return layer.base
+    + Math.sin(t * Math.PI * 2.4) * layer.amp
+    + Math.sin(t * Math.PI * 5.2 + 1.1) * layer.amp * 0.55
+    + Math.sin(t * Math.PI * 11.0 + 0.4) * layer.amp * 0.18;
+}
+
+function hillRibbon(layer: HillLayer): THREE.Mesh {
+  const seg = 72;
+  const width = 110;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const top = new THREE.Color(layer.color).lerp(new THREE.Color(layer.lift), 0.55);
+  const bot = new THREE.Color(layer.color).multiplyScalar(0.62);
+  const mix = new THREE.Color();
+  for (let i = 0; i < seg; i++) {
+    const t0 = i / seg;
+    const t1 = (i + 1) / seg;
+    const x0 = -width / 2 + t0 * width;
+    const x1 = -width / 2 + t1 * width;
+    const h0 = crestHeight(layer, t0);
+    const h1 = crestHeight(layer, t1);
+    const yb = -3.4;
+    const tri = (x: number, y: number, high: number) => {
+      positions.push(x, y, 0);
+      mix.copy(bot).lerp(top, high);
+      colors.push(mix.r, mix.g, mix.b);
+    };
+    tri(x0, yb, 0);
+    tri(x1, yb, 0);
+    tri(x1, h1, 1);
+    tri(x0, yb, 0);
+    tri(x1, h1, 1);
+    tri(x0, h0, 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true }));
+  mesh.position.set(0, layer.y, layer.z);
+  return mesh;
+}
+
+function ridgeCover(parent: THREE.Object3D, layer: HillLayer, theme: SkyTheme): void {
+  const count = layer.where === 'far' ? 18 : 14;
+  const canopy = new THREE.Color(theme === 'party' ? '#ffb0d0' : theme === 'golden' ? '#e8a05a' : theme === 'orchard' ? '#6aaa3a' : '#2f8a40');
+  if (layer.where === 'far') canopy.lerp(new THREE.Color('#d5e7f6'), layer.z < -36 ? 0.62 : 0.38);
+  const mat = new THREE.MeshBasicMaterial({ color: canopy, fog: true });
+  const trees = new THREE.InstancedMesh(GEO.sphere, mat, count);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < count; i++) {
+    const t = (i + 0.5) / count;
+    const x = -48 + t * 96;
+    const h = crestHeight(layer, (x + 55) / 110);
+    const s = (layer.where === 'far' ? 0.42 : layer.where === 'mid' ? 0.62 : 0.78) * (0.65 + (i % 4) * 0.16);
+    dummy.position.set(x, layer.y + h + s * 0.15, layer.z + 0.35);
+    dummy.scale.set(s * 1.3, s * (0.7 + (i % 3) * 0.15), s);
+    dummy.updateMatrix();
+    trees.setMatrixAt(i, dummy.matrix);
+  }
+  parent.add(trees);
+  if (layer.where === 'near') scatterShelf(parent, theme, layer);
+}
+
+function scatterShelf(parent: THREE.Object3D, theme: SkyTheme, layer: HillLayer): void {
+  const z = layer.z + 0.8;
+  const ground = (x: number) => layer.y + crestHeight(layer, (x + 55) / 110);
+  const fence = theme === 'party' ? '#fff1c4' : '#f3e2c4';
+  for (let i = 0; i < 6; i++) {
+    const x = -14 + i * 5.4;
+    const y = ground(x);
+    const post = new THREE.Mesh(GEO.box, toon(fence));
+    post.scale.set(0.07, 0.42, 0.07);
+    post.position.set(x, y + 0.2, z);
+    const rail = new THREE.Mesh(GEO.box, toon(fence));
+    rail.scale.set(2.2, 0.05, 0.05);
+    rail.position.set(x + 1.1, y + 0.32, z);
+    parent.add(post, rail);
+  }
+  const spots = [-11, -3.5, 5.5, 13, 19];
+  spots.forEach((x, i) => {
+    const y = ground(x);
+    const rock = new THREE.Mesh(GEO.sphereSm, toon(i % 2 ? '#c4b4a4' : '#8d6a52'));
+    rock.scale.set(0.28, 0.18, 0.22);
+    rock.position.set(x, y + 0.08, z + 0.25);
+    parent.add(rock);
+    if (i % 2 === 0) {
+      const cap = new THREE.Mesh(GEO.sphere, toon(i % 4 === 0 ? '#e23d4a' : '#f2c14a'));
+      cap.scale.set(0.14, 0.08, 0.14);
+      cap.position.set(x + 0.4, y + 0.1, z - 0.1);
+      const stem = new THREE.Mesh(GEO.cyl, toon('#f7f1e4'));
+      stem.scale.set(0.035, 0.14, 0.035);
+      stem.position.set(x + 0.4, y + 0.02, z - 0.1);
+      parent.add(cap, stem);
+    }
+  });
+  for (const x of [-7.5, 10]) {
+    const y = ground(x);
+    const lamp = new THREE.Mesh(GEO.box, toon('#6e4124'));
+    lamp.scale.set(0.06, 0.55, 0.06);
+    lamp.position.set(x, y + 0.28, z + 0.35);
+    const glow = new THREE.Mesh(GEO.sphere, toon('#ffe08a', '#fff1b0', 0.8));
+    glow.scale.set(0.1, 0.1, 0.1);
+    glow.position.set(x, y + 0.58, z + 0.35);
+    parent.add(lamp, glow);
+  }
+  const fallX = -1.6;
+  const fallY = ground(fallX);
+  const fall = waterfall();
+  fall.position.set(fallX, fallY - 0.15, z + 0.1);
+  const pool = new THREE.Mesh(GEO.circle, toon(theme === 'party' ? '#ff9ec4' : '#3ec8c4'));
+  pool.rotation.x = -Math.PI / 2;
+  pool.scale.set(0.55, 0.28, 1);
+  pool.position.set(fallX, fallY - 0.72, z + 0.35);
+  const stream = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.5, 0.16),
+    new THREE.MeshBasicMaterial({
+      color: theme === 'party' ? '#ffc0dc' : theme === 'golden' ? '#f0c48a' : '#8fd4ea',
+      transparent: true,
+      opacity: 0.88,
+      fog: true,
+    }),
+  );
+  stream.rotation.x = -Math.PI / 2;
+  stream.position.set(4.2, ground(4.2) + 0.02, z + 0.2);
+  parent.add(fall, pool, stream);
+}
+
+function waterfall(): THREE.Mesh {
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      varying vec2 vUv;
+      void main() {
+        float streak = 0.72 + 0.28 * sin(vUv.y * 7.0 - uTime * 3.4 + vUv.x * 5.0);
+        float edge = smoothstep(0.0, 0.28, vUv.x) * smoothstep(1.0, 0.72, vUv.x);
+        float fade = smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.62, vUv.y);
+        vec3 col = mix(vec3(0.45, 0.75, 0.92), vec3(0.94, 0.98, 1.0), streak);
+        gl_FragColor = vec4(col, 0.5 * edge * fade);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  trackTime(material.uniforms.uTime as { value: number });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 1.15), material);
+  return mesh;
+}
+
+function layHills(far: THREE.Group, mid: THREE.Group, theme: SkyTheme): void {
+  for (const layer of hillPalette(theme)) {
+    const band = hillRibbon(layer);
+    const home = layer.where === 'far' ? far : mid;
+    home.add(band);
+    ridgeCover(home, layer, theme);
+  }
+  const peakMat = new THREE.MeshBasicMaterial({
+    color: theme === 'party' ? '#e7d0f2' : theme === 'golden' ? '#f0d2b0' : '#d5e6ea',
+  });
+  for (let i = 0; i < 5; i++) {
+    const group = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const peak = new THREE.Mesh(GEO.cone, peakMat);
+      peak.scale.set(1.1 + k * 0.35, 1.6 + (2 - k) * 0.7, 0.3);
+      peak.position.set((k - 1) * 0.7, k * 0.15, 0);
+      group.add(peak);
+    }
+    group.position.set(-30 + i * 15, 1.55, -52);
+    far.add(group);
+  }
+}
+
+function dressHorizon(mid: THREE.Group, theme: SkyTheme): void {
+  const fruit = theme === 'orchard' ? '#f0c14a' : theme === 'golden' ? '#e07a3a' : null;
+  const spots = [-9.2, -5.6, -1.6, 2.6, 6.8, 10.4];
+  const quiet = (obj: THREE.Object3D) => {
+    obj.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) mesh.castShadow = false;
+    });
+  };
+  spots.forEach((x, i) => {
+    if (i % 2 === 0) {
+      const item = tree(0.58 + (i % 3) * 0.14, fruit);
+      item.position.set(x, 0.02, -4.5);
+      quiet(item);
+      mid.add(item);
+    } else {
+      const shrub = bush(0.8 + (i % 3) * 0.2);
+      shrub.position.set(x, 0, -4.05);
+      quiet(shrub);
+      mid.add(shrub);
+      const stone = rock(0.65 + (i % 2) * 0.2);
+      stone.position.set(x + 0.85, 0, -3.7);
+      quiet(stone);
+      mid.add(stone);
+    }
+  });
+  const fall = waterfall();
+  fall.scale.set(1.35, 1.7, 1);
+  fall.position.set(0.6, 0.9, -4.15);
+  const lamp = new THREE.Mesh(GEO.box, toon('#6e4124'));
+  lamp.scale.set(0.07, 0.62, 0.07);
+  lamp.position.set(4.4, 0.32, -3.85);
+  const glow = new THREE.Mesh(GEO.sphere, toon('#ffe08a', '#fff1b0', 0.9));
+  glow.scale.setScalar(0.11);
+  glow.position.set(4.4, 0.7, -3.85);
+  mid.add(fall, lamp, glow);
+}
+
+function frameLeaves(frame: THREE.Group, theme: SkyTheme): void {
+  const mat = toon(theme === 'golden' ? '#e08a3a' : theme === 'party' ? '#ff8fb8' : '#3cb14a').clone();
+  mat.map = leafTexture();
+  mat.alphaTest = 0.35;
+  mat.side = THREE.DoubleSide;
+  mat.depthWrite = false;
+  const spots: [number, number, number, number, number][] = [
+    [-0.74, 0.62, 0.04, 0.7, 0.42],
+    [0.78, 0.58, 0.02, -0.9, 0.46],
+    [-0.8, -0.55, 0.04, 0.35, 0.36],
+    [0.82, -0.52, 0.08, -0.4, 0.34],
+  ];
+  for (const [x, y, z, rot, s] of spots) {
+    const leaf = new THREE.Mesh(GEO.plane, mat);
+    leaf.scale.set(s * 0.72, s, 1);
+    leaf.position.set(x, y, z);
+    leaf.rotation.z = rot;
+    frame.add(leaf);
+  }
+  const branch = new THREE.Mesh(GEO.cyl, toon('#6e4124'));
+  branch.scale.set(0.02, 0.42, 0.02);
+  branch.rotation.z = 1.2;
+  branch.position.set(-0.92, 0.46, 0.08);
+  frame.add(branch);
 }
 
 export function dressGrove(parent: THREE.Object3D): void {
@@ -365,6 +668,66 @@ export function dressPantry(parent: THREE.Object3D): void {
   const lamp = new THREE.PointLight('#ffc48a', 0.85, 7.5, 2);
   lamp.position.set(-2.2, 2.1, -0.2);
   parent.add(lamp);
+  for (const x of [-6.2, -3.6, -0.4, 2.6, 5.4]) {
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.46), toon('#c4844a'));
+    shelf.position.set(x, 1.85, -1.35);
+    parent.add(shelf);
+    const cheese = new THREE.Mesh(GEO.cyl, toon('#f0c14a', '#ffe08a', 0.15));
+    cheese.scale.set(0.22, 0.12, 0.22);
+    cheese.rotation.z = Math.PI / 2;
+    cheese.position.set(x - 0.55, 2.02, -1.28);
+    const hole = new THREE.Mesh(GEO.sphereSm, toon('#e0a040'));
+    hole.scale.set(0.05, 0.05, 0.05);
+    hole.position.set(x - 0.55, 2.02, -1.16);
+    const loaf = new THREE.Mesh(GEO.sphere, toon('#e7b27a'));
+    loaf.scale.set(0.18, 0.1, 0.14);
+    loaf.position.set(x + 0.15, 1.98, -1.28);
+    const pot = jar(x > 0 ? '#c9a6ff' : '#e07a5f');
+    pot.position.set(x + 0.7, 1.95, -1.28);
+    parent.add(cheese, hole, loaf, pot);
+    const bunch = new THREE.Group();
+    bunch.userData.role = 'sway';
+    bunch.userData.amp = 0.08;
+    const tie = new THREE.Mesh(GEO.sphereSm, toon('#f2c14a'));
+    tie.scale.set(0.05, 0.05, 0.05);
+    const herb = new THREE.Mesh(GEO.cone, toon(x % 2 ? '#2f8a38' : '#6aaa3a'));
+    herb.scale.set(0.1, 0.32, 0.1);
+    herb.position.y = -0.16;
+    herb.rotation.z = Math.PI;
+    bunch.add(tie, herb);
+    bunch.position.set(x, 3.05, -1.25);
+    parent.add(bunch);
+  }
+  for (const [x, y] of [[-5.6, 0.02], [-0.2, 0.88], [4.6, 0.02]] as const) {
+    const light = candle();
+    light.position.set(x, y, -1.08);
+    parent.add(light);
+  }
+  for (const x of [-5.5, -1.5, 2.2, 6.1]) {
+    const sack = new THREE.Mesh(GEO.sphere, toon('#e7d3b0'));
+    sack.scale.set(0.28, 0.22, 0.22);
+    sack.position.set(x, 0.28, -1.05);
+    parent.add(sack);
+  }
+  const foreground = new THREE.Group();
+  foreground.name = 'frame';
+  const sprig = toon('#2f8a38').clone();
+  sprig.side = THREE.DoubleSide;
+  for (const [x, y, rot] of [[-0.86, 0.22, 0.6], [0.9, 0.34, -0.8], [-0.7, 0.5, 0.2]] as const) {
+    const herb = new THREE.Mesh(GEO.cone, sprig);
+    herb.scale.set(0.08, 0.28, 0.08);
+    herb.position.set(x, y, 0.05);
+    herb.rotation.z = Math.PI + rot;
+    foreground.add(herb);
+  }
+  parent.add(foreground);
+  for (let i = 0; i < 16; i++) {
+    const mote = new THREE.Mesh(GEO.plane, basic('#ffe7b8', 0.55));
+    mote.scale.setScalar(0.05 + (i % 3) * 0.02);
+    mote.position.set(-7 + (i % 8) * 1.8, 1.2 + (i % 4) * 0.45, -0.8);
+    mote.userData.role = 'dust';
+    parent.add(mote);
+  }
 }
 
 function portraitTexture(): THREE.CanvasTexture {

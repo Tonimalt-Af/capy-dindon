@@ -212,6 +212,13 @@ export class Stage {
     this.distance = distance;
   }
 
+  snap(): void {
+    const goalX = (this.fixed?.x ?? this.focus.x) + this.lookahead;
+    const goalY = (this.fixed?.y ?? this.focus.y) + 1.05;
+    this.camera.position.set(goalX, goalY + 0.15, this.distance);
+    this.camera.lookAt(goalX, this.camera.position.y - 0.42, 0);
+  }
+
   kick(amount: number, reduced: boolean): void {
     if (!reduced) this.shake = Math.min(0.28, this.shake + amount);
   }
@@ -259,6 +266,8 @@ export class Stage {
     const jx = reduced ? 0 : Math.sin(this.clock * 54) * this.shake;
     const jy = reduced ? 0 : Math.cos(this.clock * 47) * this.shake * 0.65;
     this.camera.lookAt(this.camera.position.x + jx, this.camera.position.y - 0.42 + jy, 0);
+    const frame = this.root.getObjectByName('frame');
+    if (frame) frame.position.set(this.camera.position.x, this.camera.position.y, this.camera.position.z - 2.55);
     this.sky.position.x = this.camera.position.x;
     this.sky.position.y = this.camera.position.y * 0.15;
     const ortho = this.key.shadow.camera as THREE.OrthographicCamera;

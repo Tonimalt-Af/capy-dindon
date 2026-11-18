@@ -2,10 +2,13 @@ import * as THREE from 'three';
 import {
   barkTexture,
   basic,
+  bladeGeometry,
+  blossomGeometry,
   cliffMap,
   featherMaterial,
   GEO,
   grassMap,
+  grassMaterial,
   leafTexture,
   plankTexture,
   toon,
@@ -34,15 +37,96 @@ function mesh(
   return item;
 }
 
+function softCap(width: number, depth: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const steps = 32;
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    const wobble = 1 + Math.sin(a * 3 + width) * 0.04 + Math.cos(a * 5 + depth) * 0.028;
+    const x = Math.cos(a) * width * 0.53 * wobble;
+    const y = Math.sin(a) * depth * 0.56 * wobble;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+
+const BLADE = bladeGeometry();
+const BLOSSOM = blossomGeometry();
+const FLOWER_TINTS = [new THREE.Color('#ffffff'), new THREE.Color('#ffd0e4'), new THREE.Color('#fff1a8'), new THREE.Color('#ffffff')];
+
+export function grassCover(parent: THREE.Object3D, width: number, depth: number): void {
+  const tufts = Math.min(40, Math.max(8, Math.round(width * depth * 1.7)));
+  const per = 8;
+  const blades = new THREE.InstancedMesh(BLADE, grassMaterial(), tufts * per);
+  blades.castShadow = false;
+  blades.receiveShadow = false;
+  blades.frustumCulled = false;
+  const dummy = new THREE.Object3D();
+  const tint = new THREE.Color();
+  let n = 0;
+  for (let t = 0; t < tufts; t++) {
+    const x = (Math.random() - 0.5) * width * 0.9;
+    const z = -depth * (0.08 + Math.random() * 0.5);
+    const back = z < -depth * 0.28;
+    const side = Math.abs(x) > width * 0.38;
+    const h = back || side ? 0.95 + Math.random() * 0.55 : 0.28 + Math.random() * 0.16;
+    tint.set(Math.random() > 0.7 ? '#e7f6c4' : '#ffffff');
+    if (Math.random() > 0.82) tint.set('#d8ef9a');
+    for (let b = 0; b < per; b++) {
+      dummy.position.set(x + (Math.random() - 0.5) * 0.14, 0.07, z + (Math.random() - 0.5) * 0.1);
+      dummy.rotation.y = (b / per) * Math.PI + Math.random() * 0.4;
+      dummy.rotation.z = (Math.random() - 0.5) * 0.35;
+      dummy.scale.set(0.75 + Math.random() * 0.55, h * (0.85 + Math.random() * 0.3), 1);
+      dummy.updateMatrix();
+      blades.setMatrixAt(n, dummy.matrix);
+      blades.setColorAt(n, tint);
+      n += 1;
+    }
+  }
+  if (blades.instanceColor) blades.instanceColor.needsUpdate = true;
+  parent.add(blades);
+  const blooms = Math.max(3, Math.round(width * 0.85));
+  const flowers = new THREE.InstancedMesh(BLOSSOM, grassMaterial(), blooms);
+  flowers.frustumCulled = false;
+  for (let i = 0; i < blooms; i++) {
+    dummy.position.set((Math.random() - 0.5) * width * 0.8, 0.08, (Math.random() * 0.55 - 0.5) * depth);
+    dummy.rotation.set(0, Math.random() * 0.4, (Math.random() - 0.5) * 0.2);
+    dummy.scale.setScalar(0.9 + Math.random() * 0.8);
+    dummy.updateMatrix();
+    flowers.setMatrixAt(i, dummy.matrix);
+    flowers.setColorAt(i, FLOWER_TINTS[i % FLOWER_TINTS.length]);
+  }
+  if (flowers.instanceColor) flowers.instanceColor.needsUpdate = true;
+  parent.add(flowers);
+  const overhang = Math.max(10, Math.round(width * 2.4));
+  const lip = new THREE.InstancedMesh(BLADE, grassMaterial(), overhang);
+  lip.frustumCulled = false;
+  for (let i = 0; i < overhang; i++) {
+    dummy.position.set(-width * 0.46 + (i * width * 0.92) / overhang, -0.02, depth * 0.42);
+    dummy.rotation.set(1.25, i * 0.35, (Math.random() - 0.5) * 0.5);
+    dummy.scale.set(0.85, 0.9 + Math.random() * 0.7, 1);
+    dummy.updateMatrix();
+    lip.setMatrixAt(i, dummy.matrix);
+    lip.setColorAt(i, tint);
+  }
+  if (lip.instanceColor) lip.instanceColor.needsUpdate = true;
+  parent.add(lip);
+}
+
 export function island(width: number, depth = 2.5, thick = 1.35): THREE.Group {
   const group = new THREE.Group();
   const cliff = toon('#c4844a').clone();
   cliff.map = cliffMap(Math.max(1, width / 3), 1);
-  mesh(GEO.box, cliff, group, 0, -thick / 2 - 0.05, 0, [width, thick, depth], true);
-  const grass = toon('#3ea84a').clone();
-  grass.map = grassMap(Math.max(1, width / 1.7), Math.max(1, depth / 1.7));
-  mesh(GEO.box, grass, group, 0, 0.02, 0, [width * 1.03, 0.2, depth * 1.05], false);
-  mesh(GEO.box, toon('#8fe06a'), group, 0, 0.1, 0.02, [width * 0.9, 0.06, depth * 0.82], false);
+  mesh(GEO.box, cliff, group, 0, -thick / 2 - 0.02, 0, [width * 0.9, thick, depth * 0.78], true);
+  const capMat = toon('#4eae58').clone();
+  capMat.map = grassMap(Math.max(1, width / 2.2), Math.max(1, depth / 1.6));
+  const cap = new THREE.Mesh(softCap(width, depth), capMat);
+  cap.position.y = 0.05;
+  cap.receiveShadow = true;
+  group.add(cap);
   const stones = Math.max(2, Math.round(width / 3));
   for (let i = 0; i < stones; i++) {
     const side = i % 2 === 0 ? 1 : -1;
@@ -58,6 +142,7 @@ export function island(width: number, depth = 2.5, thick = 1.35): THREE.Group {
     );
     rock.rotation.z = (i - 2) * 0.2;
   }
+  grassCover(group, width, depth);
   return group;
 }
 
@@ -238,8 +323,8 @@ export function totem(lit: number): THREE.Group {
   mesh(GEO.torus, toon('#e7c48a'), group, 0, 0.55, 0, [0.16, 0.16, 0.08], false).rotation.x = Math.PI / 2;
   mesh(GEO.torus, toon('#c47c3c'), group, 0, 1.15, 0, [0.14, 0.14, 0.08], false).rotation.x = Math.PI / 2;
   mesh(GEO.sphere, toon('#d4924e'), group, 0.02, 1.78, 0, [0.2, 0.18, 0.2], true);
-  mesh(GEO.box, toon('#f3d2b0'), group, 0.16, 1.7, 0, [0.12, 0.1, 0.16], true);
-  mesh(GEO.sphereSm, basic('#4a2e24'), group, 0.22, 1.7, 0, [0.03, 0.028, 0.05], false);
+  mesh(GEO.sphere, toon('#f3d2b0'), group, 0.16, 1.7, 0, [0.1, 0.07, 0.09], true);
+  mesh(GEO.sphereSm, basic('#4a2e24'), group, 0.24, 1.69, 0.04, [0.028, 0.02, 0.02], false);
   mesh(GEO.sphere, basic('#fffaf6'), group, 0.06, 1.84, 0.12, [0.07, 0.08, 0.045], false);
   mesh(GEO.sphereSm, basic('#6a432c'), group, 0.08, 1.83, 0.15, [0.04, 0.048, 0.03], false);
   mesh(GEO.sphereSm, basic('#1a120e'), group, 0.09, 1.82, 0.17, [0.024, 0.03, 0.02], false);
@@ -489,32 +574,6 @@ export function dress(parent: THREE.Object3D, width: number, theme: 'meadow' | '
     stone.position.set(width * 0.36, 0, 0.35);
     parent.add(stone);
   }
-  grassFringe(parent, width * 0.92, 1.12);
-  grassFringe(parent, width * 0.86, -1.08);
-}
-
-const tuft = new THREE.PlaneGeometry(0.2, 0.26, 1, 3);
-tuft.translate(0, 0.13, 0);
-
-export function grassFringe(parent: THREE.Object3D, width: number, z: number): void {
-  const count = Math.min(16, Math.max(5, Math.round(width * 1.2)));
-  const greens = ['#2f9a3c', '#57c84e', '#1f8a38', '#8ee56a'];
-  const mat = new THREE.MeshBasicMaterial({ color: greens[Math.abs(Math.round(z)) % greens.length], side: THREE.DoubleSide });
-  const blades = new THREE.InstancedMesh(tuft, mat, count);
-  blades.castShadow = false;
-  blades.receiveShadow = false;
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < count; i++) {
-    dummy.position.set(-width * 0.46 + (i + 0.35) * ((width * 0.92) / count), 0.04, z);
-    dummy.rotation.y = i % 2 === 0 ? -0.2 : 0.25;
-    dummy.rotation.z = i % 2 === 0 ? -0.08 : 0.1;
-    dummy.scale.set(0.38, 0.9 + (i % 3) * 0.28, 1);
-    dummy.updateMatrix();
-    blades.setMatrixAt(i, dummy.matrix);
-  }
-  blades.userData.role = 'sway';
-  blades.userData.amp = 0.04;
-  parent.add(blades);
 }
 
 export function pond(radius = 0.7): THREE.Mesh {

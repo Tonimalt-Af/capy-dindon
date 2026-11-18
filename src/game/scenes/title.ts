@@ -18,11 +18,21 @@ export class TitleScene implements Scene {
     const { stage, ui, audio, save, flags } = this.ctx;
     stage.clear();
     stage.mood('day');
-    stage.hold(1.15, 0.95, 9.2);
+    const close = flags.shot === 'close';
+    stage.hold(close ? 2.02 : 1.15, close ? -0.55 : 0.95, close ? 2.85 : 9.2);
+    if (close) stage.snap();
     this.grove = createGrove(save.data.stage);
+    if (close) this.grove.bugs.forEach((bug) => {
+      bug.visible = false;
+    });
     stage.root.add(this.grove.group);
     audio.playSong('title');
     const cont = hasProgress(save.data);
+    if (close) {
+      ui.setHud(`<div data-testid="title-screen"></div>`);
+      ui.say('');
+      return;
+    }
     ui.setHud(`
       <div class="title-wrap" data-testid="title-screen">
         <div class="brand">
@@ -31,9 +41,9 @@ export class TitleScene implements Scene {
             <path d="M26 28c6-14 12-8 7 6" fill="#fff3c4"/>
             <ellipse cx="36" cy="46" rx="24" ry="14" fill="#c47c3c"/>
             <ellipse cx="38" cy="50" rx="14" ry="7" fill="#f3d7b4"/>
-            <rect x="48" y="26" width="16" height="16" rx="5" fill="#d7a36a"/>
-            <rect x="60" y="32" width="18" height="12" rx="3" fill="#f0d0ae"/>
-            <ellipse cx="74" cy="37" rx="2.2" ry="1.7" fill="#3a2418"/>
+            <ellipse cx="56" cy="34" rx="12" ry="11" fill="#d7a36a"/>
+            <ellipse cx="68" cy="38" rx="10" ry="7" fill="#f0d0ae"/>
+            <ellipse cx="76" cy="38" rx="2.2" ry="1.6" fill="#3a2418"/>
             <ellipse cx="50" cy="22" rx="4" ry="5.5" fill="#c47c3c"/>
             <ellipse cx="50" cy="23" rx="2" ry="3" fill="#e7a090"/>
             <circle cx="56" cy="30" r="4.4" fill="#fffaf6"/>

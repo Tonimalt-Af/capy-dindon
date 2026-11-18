@@ -353,6 +353,118 @@ export function featherMaterial(color: string, glow = 0.35): THREE.MeshToonMater
   return material;
 }
 
+let grassMat: THREE.ShaderMaterial | null = null;
+
+export function setGrassFocus(x: number, z: number): void {
+  grassMat?.uniforms.uCapy.value.set(x, z);
+}
+
+export function grassMaterial(): THREE.ShaderMaterial {
+  if (grassMat) return grassMat;
+  grassMat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: {
+      uTime: { value: 0 },
+      uCapy: { value: new THREE.Vector2(100, 100) },
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform vec2 uCapy;
+      attribute vec3 color;
+      varying vec3 vColor;
+      void main() {
+        vColor = color;
+        #ifdef USE_INSTANCING_COLOR
+          vColor *= instanceColor.xyz;
+        #endif
+        vec3 origin = (modelMatrix * vec4(instanceMatrix[3].xyz, 1.0)).xyz;
+        float h = clamp(position.y / 0.5, 0.0, 1.0);
+        float bend = h * h;
+        vec3 p = position;
+        float wind = sin(uTime * 1.65 + origin.x * 1.25 + origin.z * 0.65);
+        p.x += wind * bend * 0.18;
+        p.z += cos(uTime * 1.15 + origin.z * 1.4) * bend * 0.06;
+        vec2 away = origin.xz - uCapy;
+        float dist = length(away);
+        float push = smoothstep(1.05, 0.08, dist) * bend;
+        vec2 dir = away / max(dist, 0.08);
+        p.x += dir.x * push * 0.5;
+        p.z += dir.y * push * 0.16;
+        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      void main() {
+        gl_FragColor = vec4(vColor, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  trackTime(grassMat.uniforms.uTime as { value: number });
+  return grassMat;
+}
+
+export function bladeGeometry(): THREE.BufferGeometry {
+  const seg = 5;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const base = new THREE.Color('#1c6b30');
+  const mid = new THREE.Color('#3eae4c');
+  const tip = new THREE.Color('#e4f7b0');
+  const mix = new THREE.Color();
+  for (let i = 0; i < seg; i++) {
+    const t0 = i / seg;
+    const t1 = (i + 1) / seg;
+    const y0 = t0 * 0.5;
+    const y1 = t1 * 0.5;
+    const w0 = 0.07 * (1 - t0 * 0.92);
+    const w1 = 0.07 * (1 - t1 * 0.92);
+    const x0 = Math.sin(t0 * Math.PI) * 0.09;
+    const x1 = Math.sin(t1 * Math.PI) * 0.09;
+    const c0 = t0 < 0.45 ? mix.copy(base).lerp(mid, t0 / 0.45) : mix.copy(mid).lerp(tip, (t0 - 0.45) / 0.55);
+    const ca = c0.toArray();
+    const c1 = t1 < 0.45 ? mix.copy(base).lerp(mid, t1 / 0.45) : mix.copy(mid).lerp(tip, (t1 - 0.45) / 0.55);
+    const cb = c1.toArray();
+    positions.push(x0 - w0, y0, 0, x0 + w0, y0, 0, x1 + w1, y1, 0);
+    colors.push(...ca, ...ca, ...cb);
+    positions.push(x0 - w0, y0, 0, x1 + w1, y1, 0, x1 - w1, y1, 0);
+    colors.push(...ca, ...cb, ...cb);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  return geo;
+}
+
+export function blossomGeometry(): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const petal = new THREE.Color('#ff8fb8');
+  const heart = new THREE.Color('#ffe08a');
+  const push = (x: number, y: number, c: THREE.Color) => {
+    positions.push(x, y, 0);
+    colors.push(c.r, c.g, c.b);
+  };
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    const tipX = Math.cos(a) * 0.09;
+    const tipY = 0.16 + Math.sin(a) * 0.09;
+    const left = a + 0.5;
+    const right = a - 0.5;
+    push(Math.cos(left) * 0.03, 0.16 + Math.sin(left) * 0.03, petal);
+    push(Math.cos(right) * 0.03, 0.16 + Math.sin(right) * 0.03, petal);
+    push(tipX, tipY, petal);
+  }
+  push(-0.025, 0.14, heart);
+  push(0.025, 0.14, heart);
+  push(0, 0.185, heart);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  return geo;
+}
+
 export function waterMaterial(color: string, deep: string): THREE.ShaderMaterial {
   const material = new THREE.ShaderMaterial({
     transparent: true,
