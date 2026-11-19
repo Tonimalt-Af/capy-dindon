@@ -535,9 +535,9 @@ export const OUTLINE = new THREE.MeshBasicMaterial({ color: '#3f2416', side: THR
 export const GRADE = {
   uniforms: {
     tDiffuse: { value: null },
-    uSat: { value: 1.24 },
-    uContrast: { value: 1.07 },
-    uLift: { value: 0.015 },
+    uSat: { value: 1 },
+    uContrast: { value: 1 },
+    uLift: { value: 0 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -557,7 +557,7 @@ export const GRADE = {
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb = mix(vec3(l), c.rgb, uSat);
       c.rgb = (c.rgb - 0.5) * uContrast + 0.5 + uLift;
-      c.rgb += vec3(0.018, 0.006, -0.008);
+      c.rgb += vec3(0.0);
       gl_FragColor = vec4(c.rgb, c.a);
     }
   `,

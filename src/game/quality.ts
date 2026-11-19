@@ -30,7 +30,7 @@ export function profileFor(tier: Tier, devicePixelRatio = 1): Profile {
     return { tier, dpr: Math.min(1, dpr), shadowSize: 512, bloom: false, bloomStrength: 0 };
   }
   if (tier === 'medium') {
-    return { tier, dpr: Math.min(1.35, dpr), shadowSize: 1024, bloom: true, bloomStrength: 0.18 };
+    return { tier, dpr: Math.min(1.35, dpr), shadowSize: 1024, bloom: true, bloomStrength: 0.08 };
   }
-  return { tier, dpr: Math.min(1.6, dpr), shadowSize: 1536, bloom: true, bloomStrength: 0.28 };
+  return { tier, dpr: Math.min(1.6, dpr), shadowSize: 1536, bloom: true, bloomStrength: 0.12 };
 }

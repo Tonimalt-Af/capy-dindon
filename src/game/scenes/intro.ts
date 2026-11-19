@@ -1,4 +1,3 @@
-import { flutter } from '../render/scenery';
 import { createGrove } from '../render/grove';
 import { INTRO, TEXT } from '../text';
 import { typewrite } from '../ui';
@@ -21,9 +20,12 @@ export class IntroScene implements Scene {
     this.stop = new AbortController();
     const { stage, audio } = this.ctx;
     stage.clear();
+    stage.mood('day');
+    stage.paintMode();
     this.grove = createGrove(0);
     stage.root.add(this.grove.group);
-    stage.hold(1.05, 1.0, 9.4);
+    stage.hold(0.35, 0.7, 11.2);
+    this.grove.backdrop.sync(stage.camera);
     audio.playSong('title');
     if (this.ctx.flags.shot === 'intro') this.beat = 1;
     this.renderBeat(this.ctx.flags.shot === 'intro');
@@ -33,7 +35,7 @@ export class IntroScene implements Scene {
     const grove = this.grove;
     if (!grove) return;
     this.ctx.stage.mood(MOODS[this.beat] ?? 'day');
-    grove.capy.setMood(this.beat === 0 ? 'sleep' : this.beat === 1 ? 'wow' : 'happy');
+    grove.capy.setMood(this.beat === 0 ? 'sleep' : this.beat === 1 ? 'wow' : this.beat === 2 ? 'happy' : 'idle');
     grove.feather.visible = this.beat > 0;
     grove.vision.visible = this.beat === 2;
     const showText = this.ctx.subtitles() || this.ctx.flags.shot === 'intro';
@@ -86,16 +88,15 @@ export class IntroScene implements Scene {
     grove.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     grove.legend.calm = this.ctx.reduced();
     grove.legend.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
-    grove.rig.update(dt, this.ctx.reduced(), 0);
+    grove.backdrop.sync(this.ctx.stage.camera);
     if (this.beat === 1) {
       const y = 3.2 - Math.min(1, this.beatTime / 1.1) * 2;
       grove.feather.position.y = Math.max(1.15, y);
-      grove.feather.rotation.y += dt * 2;
+      grove.feather.rotation.z += dt * 2;
     } else if (this.beat > 1) {
       grove.feather.position.y = 1.15 + Math.sin(this.time * 2) * 0.06;
-      grove.feather.rotation.y += dt;
+      grove.feather.rotation.z += dt;
     }
-    grove.bugs.forEach((bug, i) => flutter(bug, this.time + i));
     if (this.ctx.flags.demo && this.beatTime > 0.85) this.advance();
   }
 

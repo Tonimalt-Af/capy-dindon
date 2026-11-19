@@ -23,6 +23,7 @@ export class Particles {
       const mesh = new THREE.Mesh(GEO.plane, this.mat('#fff6d4'));
       mesh.visible = false;
       mesh.scale.setScalar(0.12);
+      mesh.renderOrder = 16;
       parent.add(mesh);
       this.sparks.push({ mesh, v: new THREE.Vector3(), life: 0, max: 1, spin: 0, gravity: 3 });
     }
@@ -30,16 +31,18 @@ export class Particles {
       const mesh = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.2, 16), this.mat('#fff1c4').clone());
       mesh.visible = false;
       mesh.rotation.x = -0.2;
+      mesh.renderOrder = 15;
       parent.add(mesh);
       this.rings.push({ mesh, life: 0 });
     }
-    const moteCount = reduced ? 8 : 18;
+    const moteCount = 0;
     for (let i = 0; i < moteCount; i++) {
       const mesh = new THREE.Mesh(GEO.plane, basic(i % 3 === 0 ? '#fff1b8' : i % 3 === 1 ? '#ffffff' : '#c8ecff', 0.75));
       (mesh.material as THREE.MeshBasicMaterial).map = this.sprite;
       (mesh.material as THREE.MeshBasicMaterial).depthWrite = false;
       mesh.scale.setScalar(0.06 + Math.random() * 0.08);
-      mesh.position.set((Math.random() - 0.5) * 12, 0.8 + Math.random() * 3.2, -1.2 - Math.random());
+      mesh.position.set((Math.random() - 0.5) * 10, 0.7 + Math.random() * 2.4, 0.85);
+      mesh.renderOrder = 14;
       mesh.userData.phase = Math.random() * Math.PI * 2;
       mesh.userData.base = mesh.position.clone();
       parent.add(mesh);

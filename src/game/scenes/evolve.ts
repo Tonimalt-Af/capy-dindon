@@ -1,8 +1,6 @@
-import * as THREE from 'three';
 import { Capybara, createLegend } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { dress, featherModel, flower, island } from '../render/scenery';
-import { skyRig, type Rig } from '../render/world';
+import { PaintedBackdrop } from '../render/painted';
 import { EVOLVE } from '../text';
 import { typewrite } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -12,10 +10,8 @@ export class EvolveScene implements Scene {
   private stop = new AbortController();
   private capy = new Capybara();
   private sparks: Particles | null = null;
-  private rig: Rig | null = null;
+  private backdrop: PaintedBackdrop | null = null;
   private legend: Capybara | null = null;
-  private orbit = new THREE.Group();
-  private beam: THREE.Mesh | null = null;
   private time = 0;
   private grown = false;
   private leaving = false;
@@ -27,56 +23,22 @@ export class EvolveScene implements Scene {
     const { stage, audio } = this.ctx;
     stage.clear();
     stage.mood('evolve');
-    stage.hold(1.15, 0.7, 7.6);
+    stage.paintMode();
+    stage.hold(2.35, 0.55, 13.4);
     audio.playSong('evolve');
     const root = stage.root;
-    const land = island(8.4, 3.6, 1.6);
-    root.add(land);
-    dress(land, 7.4, 'meadow');
-    for (const x of [-2.2, -1.2, 2.4, 3.2]) {
-      const bloom = flower('#ffe08a');
-      bloom.position.set(x, 0, 0.4);
-      land.add(bloom);
-    }
-    this.rig = skyRig(root, 'golden', 32);
-    this.capy.root.position.set(1.15, 0, 0.7);
+    this.backdrop = new PaintedBackdrop('eveil', { span: 20, groundY: 0.02 });
+    root.add(this.backdrop.group);
+    this.capy.root.position.set(2.55, 0, 0.55);
+    this.capy.turn(1);
     root.add(this.capy.root);
-    this.beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 1.6, 7.5, 18, 1, true),
-      new THREE.MeshBasicMaterial({ color: '#fff1c2', transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }),
-    );
-    this.beam.position.set(0.2, 3.2, -0.6);
-    root.add(this.beam);
-    const halo = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.4, 2.4, 7.5, 18, 1, true),
-      new THREE.MeshBasicMaterial({ color: '#ffe08a', transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }),
-    );
-    halo.position.copy(this.beam.position);
-    root.add(halo);
     this.legend = createLegend();
-    this.legend.root.scale.setScalar(1.7);
-    this.legend.root.position.set(2.55, 1.7, -2.6);
-    this.legend.root.traverse((obj) => {
-      const item = obj as THREE.Mesh;
-      if (!item.isMesh) return;
-      const mat = (item.material as THREE.Material).clone();
-      mat.transparent = true;
-      mat.opacity = 0.92;
-      if ('emissive' in mat) {
-        (mat as THREE.MeshToonMaterial).emissive = new THREE.Color('#ffd27a');
-        (mat as THREE.MeshToonMaterial).emissiveIntensity = 0.12;
-      }
-      item.material = mat;
-    });
+    this.legend.root.scale.setScalar(1.16);
+    this.legend.root.position.set(5.05, 0, 0.25);
+    this.legend.turn(-1);
     root.add(this.legend.root);
-    this.rig.adopt(root);
-    for (let i = 0; i < 8; i++) {
-      const feather = featherModel();
-      feather.position.set(Math.cos((i / 8) * Math.PI * 2) * 1.4, 1.2, Math.sin((i / 8) * Math.PI * 2) * 0.4);
-      this.orbit.add(feather);
-    }
-    root.add(this.orbit);
     this.sparks = new Particles(root, this.ctx.reduced());
+    this.backdrop.sync(stage.camera);
     const instant = this.ctx.flags.shot === 'evolve' || this.ctx.reduced();
     if (instant) this.reveal();
     this.ctx.ui.setHud(`
@@ -110,9 +72,11 @@ export class EvolveScene implements Scene {
     this.ctx.audio.evolve();
     this.ctx.buzz([20, 40, 20, 60]);
     this.ctx.stage.impact(0.1, 0.12, this.ctx.reduced());
-    this.sparks?.burst(1.1, 1.2, 0.4, 20, '#fff1c9');
-    this.sparks?.confetti(1.1, 1.6, 0.2);
-    this.sparks?.ring(1.1, 0.8, 0.3, '#ffe08a');
+    if (this.ctx.flags.shot !== 'evolve') {
+      this.sparks?.burst(2.5, 1.2, 0.4, 20, '#fff1c9');
+      this.sparks?.confetti(2.5, 1.6, 0.2);
+      this.sparks?.ring(2.5, 0.8, 0.3, '#ffe08a');
+    }
   }
 
   private showButton(): void {
@@ -138,9 +102,7 @@ export class EvolveScene implements Scene {
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     this.legend?.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
-    this.orbit.rotation.y += dt * (this.ctx.reduced() ? 0.2 : 1.1);
-    this.rig?.update(dt, this.ctx.reduced(), 0);
-    if (this.beam) this.beam.scale.x = this.beam.scale.z = 1 + Math.sin(this.time * 2) * 0.05;
+    this.backdrop?.sync(this.ctx.stage.camera);
     this.sparks?.update(dt, 0);
   }
 

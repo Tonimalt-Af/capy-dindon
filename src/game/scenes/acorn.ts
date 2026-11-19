@@ -3,8 +3,8 @@ import { AcornSim, acornIntent, sampleLevel } from '../logic/acorn';
 import type { SimEvent } from '../logic/types';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { acornModel, archway, dress, island, pumpkinModel } from '../render/scenery';
-import { skyRig, type Rig } from '../render/world';
+import { groundIsland, PaintedBackdrop } from '../render/painted';
+import { acornModel, pumpkinModel } from '../render/scenery';
 import { HELP, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -22,7 +22,7 @@ export class AcornScene implements Scene {
   private islands = new Map<string, THREE.Object3D>();
   private hold = 0;
   private sparks: Particles | null = null;
-  private rig: Rig | null = null;
+  private backdrop: PaintedBackdrop | null = null;
   private finished = false;
   private countEl: HTMLElement | null = null;
 
@@ -35,15 +35,17 @@ export class AcornScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('day');
+    stage.paintMode();
     audio.playSong('glands');
     const root = stage.root;
+    this.backdrop = new PaintedBackdrop('iles-aux-glands', { span: 22, groundY: 0.02, ground: false, lockMid: false });
+    root.add(this.backdrop.group);
     const sampled = sampleLevel(this.sim.level, 0, 0);
     this.sim.level.platforms.forEach((plat, index) => {
       const solid = sampled.solids[index];
-      const land = island(plat.w, 2.4, 1.25);
-      const top = solid.y + solid.h / 2;
-      land.position.set(plat.x, top, 0);
-      dress(land, plat.w, 'orchard');
+      const land = groundIsland('iles-aux-glands', plat.w, 0.18);
+      const top = solid ? solid.y + solid.h / 2 : plat.top;
+      land.position.set(plat.x, top, 0.43);
       root.add(land);
       this.islands.set(plat.id, land);
     });
@@ -55,14 +57,17 @@ export class AcornScene implements Scene {
     }
     this.pumpkin = pumpkinModel();
     root.add(this.pumpkin);
-    this.portal = archway(false);
-    this.portal.position.set(this.sim.level.exit.x, this.sim.level.platforms.at(-1)?.top ?? 0, 0);
+    const exitTop = this.sim.level.platforms.at(-1)?.top ?? 0;
+    this.portal = new THREE.Mesh(
+      new THREE.RingGeometry(0.32, 0.52, 28),
+      new THREE.MeshBasicMaterial({ color: '#ffe7a0', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
+    );
+    this.portal.position.set(this.sim.level.exit.x, exitTop + 1.15, 0.3);
+    this.portal.renderOrder = 4;
     this.glow = new THREE.PointLight('#ffd56a', 0, 5, 2);
-    this.glow.position.y = 1.2;
+    this.glow.position.set(0, 0.2, 0.2);
     this.portal.add(this.glow);
     root.add(this.portal);
-    this.rig = skyRig(root, 'orchard', 70);
-    this.rig.adopt(root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     root.add(this.capy.root);
@@ -153,7 +158,6 @@ export class AcornScene implements Scene {
       } else if (event.type === 'land') {
         this.ctx.audio.land();
         this.ctx.stage.nudge(0.16, this.ctx.reduced());
-        this.sparks?.dust(event.x, event.y, 0.3);
       } else if (event.type === 'collect') {
         this.ctx.audio.collect();
         this.ctx.buzz([8, 24, 10]);
@@ -198,10 +202,15 @@ export class AcornScene implements Scene {
       this.pumpkin.position.set(hazard.x, hazard.y, 0.3);
       this.pumpkin.rotation.z = Math.sin(this.sim.time * 4) * 0.2;
     }
-    if (this.glow) this.glow.intensity = this.sim.collected.size >= 8 ? 2.2 : 0;
+    if (this.glow && this.portal) {
+      const open = this.sim.collected.size >= 8;
+      this.glow.intensity = open ? 1.4 : 0;
+      (this.portal as THREE.Mesh).scale.setScalar(open ? 1.35 + Math.sin(this.sim.time * 4) * 0.06 : 1);
+      ((this.portal as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = open ? 0.95 : 0.35;
+    }
     this.sparks?.update(dt, player.x);
-    this.rig?.update(dt, this.ctx.reduced(), player.x);
-    this.ctx.stage.follow(player.x, Math.max(0.6, player.y), 10.6, player.facing * 1.1);
+    this.backdrop?.sync(this.ctx.stage.camera);
+    this.ctx.stage.follow(player.x, Math.max(0.55, player.y), 12.4, player.facing * 0.32);
     for (const plat of this.sim.level.platforms) {
       if (!plat.mover) continue;
       const solid = this.sim.solids.find((s) => s.id === plat.id);

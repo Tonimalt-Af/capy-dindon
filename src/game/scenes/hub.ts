@@ -2,20 +2,11 @@ import { canEvolve, relicCount } from '../logic/evolution';
 import { Platformer } from '../logic/physics';
 import type { Solid } from '../logic/types';
 import { Capybara } from '../render/capybara';
-import { Particles } from '../render/particles';
-import { archway, dress, island, totem } from '../render/scenery';
-import { dressCamp, skyRig, type Rig } from '../render/world';
+import { PaintedBackdrop } from '../render/painted';
 import { PLACES, TEXT } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { ChallengeId } from '../logic/types';
 import type { GameContext, Scene } from '../context';
-
-const FLOOR: { id: string; x: number; top: number; w: number }[] = [
-  { id: 'ground', x: 0, top: 0, w: 18.5 },
-  { id: 'stepL', x: -2.3, top: 0.3, w: 2.5 },
-  { id: 'crest', x: 0.15, top: 0.58, w: 2.7 },
-  { id: 'stepR', x: 2.55, top: 0.3, w: 2.3 },
-];
 
 const GATES: { id: ChallengeId | 'totem'; x: number }[] = [
   { id: 'glands', x: -6.8 },
@@ -30,8 +21,7 @@ export class HubScene implements Scene {
   private player = new Platformer(-3.4, 0.7);
   private capy = new Capybara();
   private solids: Solid[] = [];
-  private sparks: Particles | null = null;
-  private rig: Rig | null = null;
+  private backdrop: PaintedBackdrop | null = null;
   private prompt: HTMLElement | null = null;
   private near: (typeof GATES)[number] | null = null;
   private demoWait = 0;
@@ -44,33 +34,17 @@ export class HubScene implements Scene {
     const { stage, save, audio } = this.ctx;
     stage.clear();
     stage.mood(save.data.stage === 1 ? 'evolve' : 'day');
+    stage.paintMode();
     audio.playSong('hub');
     const root = stage.root;
-    for (const plat of FLOOR) {
-      const land = island(plat.w, plat.id === 'ground' ? 3.1 : 2.3, plat.id === 'ground' ? 1.5 : 0.7);
-      land.position.set(plat.x, plat.top, 0);
-      if (plat.id === 'ground') dress(land, plat.w, 'meadow');
-      root.add(land);
-      const h = 1.4;
-      this.solids.push({ id: plat.id, x: plat.x, y: plat.top - h / 2, w: plat.w, h, dx: 0, dy: 0 });
-    }
-    const relics = relicCount(save.data);
-    const mark = totem(relics);
-    mark.position.set(0.15, 0.58, -0.35);
-    root.add(mark);
-    for (const gate of GATES) {
-      if (gate.id === 'totem') continue;
-      const arch = archway(save.data.challenges[gate.id], gate.id);
-      arch.position.set(gate.x, 0, -0.2);
-      root.add(arch);
-    }
-    dressCamp(root);
-    this.rig = skyRig(root, save.data.stage === 1 ? 'golden' : 'camp', 40);
-    this.rig.adopt(root);
+    this.backdrop = new PaintedBackdrop('camp-des-nuages', { span: 24, groundY: 0.02 });
+    root.add(this.backdrop.group);
+    const land = this.backdrop.bounds;
+    const h = 1.4;
+    this.solids.push({ id: 'ground', x: land.center, y: -h / 2, w: land.width, h, dx: 0, dy: 0 });
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     root.add(this.capy.root);
-    this.sparks = new Particles(root, this.ctx.reduced());
     this.player = new Platformer(-3.4, 1.2);
     this.paint();
   }
@@ -124,7 +98,6 @@ export class HubScene implements Scene {
     if (motion.landed) {
       this.ctx.audio.land();
       this.ctx.stage.nudge(0.14, this.ctx.reduced());
-      this.sparks?.dust(this.player.x, 0.08, 0.4);
     }
     if (this.player.y < -4) {
       this.player.x = -3.4;
@@ -136,9 +109,8 @@ export class HubScene implements Scene {
     this.capy.turn(this.player.facing);
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.player.vx), vy: this.player.vy, grounded: this.player.grounded, landed: motion.landed });
-    this.ctx.stage.follow(this.player.x, 0.8, 10.6, this.player.facing * 0.8);
-    this.rig?.update(dt, this.ctx.reduced(), this.player.x);
-    this.sparks?.update(dt, this.player.x);
+    this.ctx.stage.follow(this.player.x, 0.72, 12.2, this.player.facing * 0.28);
+    this.backdrop?.sync(this.ctx.stage.camera);
     this.near = GATES.find((gate) => Math.abs(this.player.x - gate.x) < 0.85) ?? null;
     if (this.prompt) {
       this.prompt.hidden = !this.near;

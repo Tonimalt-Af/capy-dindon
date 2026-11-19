@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { createParade, paradeBotAction, PARADE, stepParade, type ParadeState } from '../logic/parade';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { banner, island, pumpkinModel, turkeyModel } from '../render/scenery';
-import { dressParade, mound, skyRig, type Rig } from '../render/world';
+import { PaintedBackdrop } from '../render/painted';
+import { pumpkinModel, turkeyModel } from '../render/scenery';
 import { HELP, LOSE, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -18,11 +18,11 @@ export class ParadeScene implements Scene {
   private capy = new Capybara();
   private actors: { turkey: THREE.Object3D; bomb: THREE.Object3D }[] = [];
   private sparks: Particles | null = null;
-  private rig: Rig | null = null;
+  private backdrop: PaintedBackdrop | null = null;
   private party = 0;
   private finished = false;
-  private capyX = -4.6;
-  private whackX = -4.6;
+  private capyX = -3.5;
+  private whackX = -3.5;
   private scoreEl: HTMLElement | null = null;
   private timeEl: HTMLElement | null = null;
 
@@ -40,33 +40,25 @@ export class ParadeScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('party');
-    stage.hold(0, 1.05, 11.4);
+    stage.paintMode();
+    stage.hold(0.15, 0.65, 15.2);
     audio.playSong('parade');
     const root = stage.root;
-    const deck = island(12, 3.2, 1.1);
-    root.add(deck);
-    dressSafe(root);
-    const sign = banner('DINDONS');
-    sign.position.set(0, 2.5, -0.8);
-    root.add(sign);
+    this.backdrop = new PaintedBackdrop('parade', { span: 18, groundY: 0.02 });
+    root.add(this.backdrop.group);
     HOLES.forEach((x) => {
-      const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.2, 16), new THREE.MeshToonMaterial({ color: '#3a2418' }));
-      hole.position.set(x, 0.05, 0.1);
-      root.add(hole);
-      root.add(mound(x));
       const turkey = turkeyModel();
       const bomb = pumpkinModel();
-      turkey.position.set(x, -0.4, 0.15);
-      bomb.position.set(x, -0.4, 0.15);
+      turkey.position.set(x, -0.4, 0.2);
+      bomb.position.set(x, -0.4, 0.2);
+      turkey.scale.setScalar(1.15);
+      bomb.scale.setScalar(1.15);
       root.add(turkey, bomb);
       this.actors.push({ turkey, bomb });
     });
-    dressParade(root);
-    this.rig = skyRig(root, 'party', 36);
-    this.rig.adopt(root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
-    this.capy.root.position.set(-4.6, 0, 0.7);
+    this.capy.root.position.set(-3.5, 0, 0.6);
     root.add(this.capy.root);
     this.sparks = new Particles(root, this.ctx.reduced());
     this.ctx.ui.setHud(`
@@ -180,7 +172,8 @@ export class ParadeScene implements Scene {
     this.actors.forEach((actor, index) => {
       const hole = this.state.holes[index];
       const up = hole?.phase === 'up';
-      const y = up ? 0.15 + Math.min(1, (PARADE.visible - (hole?.life ?? 0)) * 6) * 0.85 : -0.45;
+      const rise = up ? Math.min(1, (PARADE.visible - (hole?.life ?? 0)) * 6) : 0;
+      const y = up ? -0.02 + rise * 0.1 : -0.85;
       const showTurkey = up && hole?.kind === 'turkey';
       actor.turkey.visible = showTurkey;
       actor.bomb.visible = up && hole?.kind === 'bomb';
@@ -190,11 +183,11 @@ export class ParadeScene implements Scene {
       actor.turkey.scale.set(1 / squash, squash, 1);
     });
     this.capyX += (this.whackX - this.capyX) * Math.min(1, dt * 6);
-    this.capy.root.position.set(Math.min(-2.2, this.capyX), 0, 0.85);
+    this.capy.root.position.set(Math.min(-2.2, this.capyX), 0, 0.6);
     this.capy.turn(1);
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.whackX - this.capyX), vy: 0, grounded: true, landed: false });
-    this.rig?.update(dt, this.ctx.reduced(), 0);
+    this.backdrop?.sync(this.ctx.stage.camera);
     this.party += dt;
     if (!this.ctx.reduced() && this.party > 0.55) {
       this.party = 0;
@@ -234,11 +227,3 @@ export class ParadeScene implements Scene {
   }
 }
 
-function dressSafe(root: THREE.Object3D): void {
-  const balloonColors = ['#ff8fb8', '#8fd4ff', '#ffe08a', '#c9a6ff'];
-  balloonColors.forEach((color, i) => {
-    const balloon = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), new THREE.MeshToonMaterial({ color }));
-    balloon.position.set(-4 + i * 2.6, 2.15, -0.6);
-    root.add(balloon);
-  });
-}

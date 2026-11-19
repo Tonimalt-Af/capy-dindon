@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { PANTRY, PuzzleSim, puzzleIntent } from '../logic/puzzle';
 import { Capybara } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { plankTexture, toon, wallTexture } from '../render/materials';
-import { candle, crateModel, featherModel, ghost, jar } from '../render/scenery';
-import { dressPantry, Rig } from '../render/world';
+import { toon } from '../render/materials';
+import { crateModel, featherModel } from '../render/scenery';
+import { PaintedBackdrop } from '../render/painted';
 import { HELP, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -19,9 +19,8 @@ export class PantryScene implements Scene {
   private plates = new Map<string, THREE.Mesh>();
   private gate: THREE.Object3D | null = null;
   private feather: THREE.Object3D | null = null;
-  private spook: THREE.Object3D | null = null;
   private sparks: Particles | null = null;
-  private rig: Rig | null = null;
+  private backdrop: PaintedBackdrop | null = null;
   private finished = false;
   private hold = 0;
 
@@ -33,46 +32,11 @@ export class PantryScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('pantry');
+    stage.paintMode();
     audio.playSong('pantry');
     const root = stage.root;
-    const wall = toon('#2a2038').clone();
-    wall.map = wallTexture();
-    const back = new THREE.Mesh(new THREE.BoxGeometry(18, 7, 0.3), wall);
-    back.position.set(0, 3, -1.95);
-    back.receiveShadow = true;
-    root.add(back);
-    const planks = toon('#a86b3c').clone();
-    planks.map = plankTexture();
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(18, 0.4, 3.2), planks);
-    floor.position.set(0, -0.2, 0);
-    floor.receiveShadow = true;
-    root.add(floor);
-    dressPantry(root);
-    const rug = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 1.6), toon('#e07a5f'));
-    rug.position.set(-1, 0.04, 0.2);
-    root.add(rug);
-    for (const x of [-6.2, -4.4, 6.4]) {
-      const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.5), toon('#a56a3c'));
-      shelf.position.set(x, 2.1, -1.4);
-      root.add(shelf);
-      const pot = jar(x < 0 ? '#e07a5f' : '#7dce6a');
-      pot.position.set(x, 2.15, -1.35);
-      root.add(pot);
-    }
-    const windowFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.1), toon('#f7f1e4'));
-    windowFrame.position.set(2.2, 3.3, -1.55);
-    root.add(windowFrame);
-    const moon = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), toon('#fff6d0', '#fff6d0', 1.2));
-    moon.position.set(2.5, 3.5, -1.4);
-    root.add(moon);
-    [-7.2, 7.4].forEach((x) => {
-      const light = candle();
-      light.position.set(x, 0, -0.4);
-      root.add(light);
-    });
-    this.spook = ghost();
-    this.spook.position.set(-7.4, 1.2, -0.2);
-    root.add(this.spook);
+    this.backdrop = new PaintedBackdrop('garde-manger', { span: 26, groundY: 0 });
+    root.add(this.backdrop.group);
     for (const plate of PANTRY.plates) {
       const pad = new THREE.Mesh(new THREE.BoxGeometry(plate.w, 0.08, 0.8), toon('#8d6bdb').clone());
       pad.position.set(plate.x, 0.06, 0.15);
@@ -102,8 +66,6 @@ export class PantryScene implements Scene {
     this.capy.featherGrow = save.data.stage;
     root.add(this.capy.root);
     this.sparks = new Particles(root, this.ctx.reduced());
-    this.rig = new Rig(null, null);
-    this.rig.adopt(root);
     this.ctx.ui.setHud(`
       ${hudChrome({ place: PLACES.pantry, help: HELP.pantry, muted: save.data.settings.muted, testid: 'challenge-pantry' })}
       <button type="button" class="chip" data-action="reset" style="position:absolute;left:16px;top:118px">${TEXT.resetCrates}</button>
@@ -175,7 +137,6 @@ export class PantryScene implements Scene {
         if (event.type === 'land') {
           this.ctx.audio.land();
           this.ctx.stage.nudge(0.1, this.ctx.reduced());
-          this.sparks?.dust(this.sim.player.x, 0.05, 0.4);
         }
         if (event.type === 'push') {
           this.ctx.audio.push();
@@ -205,11 +166,15 @@ export class PantryScene implements Scene {
     }
     for (const crate of this.sim.crates) this.crates.get(crate.id)?.position.set(crate.x, crate.y, 0.15);
     if (this.gate) this.gate.position.y += ((this.sim.gateOpen ? 2.8 : 0) - this.gate.position.y) * Math.min(1, dt * 4);
-    if (this.feather) this.feather.rotation.y += dt;
-    if (this.spook) this.spook.position.y = 1.15 + Math.sin(performance.now() * 0.002) * 0.12;
+    if (this.feather) this.feather.rotation.z += dt;
     this.sparks?.update(dt, player.x);
-    this.rig?.update(dt, this.ctx.reduced(), player.x);
-    this.ctx.stage.follow(player.x + 1.2, 1.15, 11.8, 0);
+    this.backdrop?.sync(this.ctx.stage.camera);
+    const aspect = this.ctx.stage.camera.aspect || 1.33;
+    const distance = 16.5;
+    const halfW = Math.tan(THREE.MathUtils.degToRad(14)) * distance * aspect;
+    const limit = Math.max(0, 13 - halfW);
+    const camX = Math.max(-limit, Math.min(limit, player.x));
+    this.ctx.stage.follow(camX, 0.85, distance, 0);
   }
 
   unmount(): void {

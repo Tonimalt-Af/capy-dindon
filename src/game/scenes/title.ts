@@ -1,5 +1,4 @@
 import { hasProgress } from '../logic/save';
-import { flutter } from '../render/scenery';
 import { createGrove } from '../render/grove';
 import { TEXT } from '../text';
 import type { GameContext, Scene } from '../context';
@@ -18,14 +17,13 @@ export class TitleScene implements Scene {
     const { stage, ui, audio, save, flags } = this.ctx;
     stage.clear();
     stage.mood('day');
+    stage.paintMode();
     const close = flags.shot === 'close';
-    stage.hold(close ? 2.02 : 1.15, close ? -0.55 : 0.95, close ? 2.85 : 9.2);
+    stage.hold(close ? 1.7 : -0.15, close ? 0.4 : 0.62, close ? 8.4 : 11.6);
     if (close) stage.snap();
     this.grove = createGrove(save.data.stage);
-    if (close) this.grove.bugs.forEach((bug) => {
-      bug.visible = false;
-    });
     stage.root.add(this.grove.group);
+    this.grove.backdrop.sync(stage.camera);
     audio.playSong('title');
     const cont = hasProgress(save.data);
     if (close) {
@@ -111,13 +109,8 @@ export class TitleScene implements Scene {
     grove.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     grove.legend.calm = this.ctx.reduced();
     grove.legend.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
-    grove.rig.update(dt, this.ctx.reduced(), 0);
-    grove.feather.rotation.y += dt;
-    grove.bugs.forEach((bug, i) => {
-      bug.position.y = 1.3 + Math.sin(this.time * 2 + i) * 0.15;
-      flutter(bug, this.time + i);
-    });
-    if (!this.ctx.reduced()) grove.group.position.y = Math.sin(this.time * 0.8) * 0.06;
+    grove.feather.rotation.z = Math.sin(this.time * 1.4) * 0.15;
+    grove.backdrop.sync(this.ctx.stage.camera);
     if (this.ctx.flags.demo && !this.leaving && this.time > 0.8 && this.ctx.ui.modal.childElementCount === 0) {
       this.leaving = true;
       this.ctx.newGame();

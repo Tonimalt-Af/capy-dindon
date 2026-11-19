@@ -73,6 +73,7 @@ export class Stage {
   private hit = 0;
   private clock = 0;
   private fixed: { x: number; y: number } | null = null;
+  private painted = false;
   dpr = 1;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -83,8 +84,8 @@ export class Stage {
       powerPreference: 'high-performance',
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = 1;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene.add(this.root);
@@ -141,7 +142,7 @@ export class Stage {
     this.scene.add(fill);
     this.scene.fog = new THREE.Fog('#b7dcff', 36, 92);
     const pass = new RenderPass(this.scene, this.camera);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.2, 0.38, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.12, 0.32, 0.94);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(pass);
     this.composer.addPass(this.bloom);
@@ -196,7 +197,17 @@ export class Stage {
     fog.near = mood.fogNear;
     fog.far = mood.fogFar;
     setShaderFog(mood.fog);
-    this.stars.visible = name === 'night' || name === 'pantry';
+    this.stars.visible = !this.painted && (name === 'night' || name === 'pantry');
+    if (this.painted) {
+      fog.near = 80;
+      fog.far = 160;
+    }
+  }
+
+  paintMode(on = true): void {
+    this.painted = on;
+    this.sky.visible = !on;
+    if (on) this.stars.visible = false;
   }
 
   follow(x: number, y: number, distance = 12, lookahead = 0): void {
@@ -285,6 +296,8 @@ export class Stage {
 
   clear(): void {
     this.root.clear();
+    this.painted = false;
+    this.sky.visible = true;
   }
 
   project(x: number, y: number, z = 0): { x: number; y: number } {
