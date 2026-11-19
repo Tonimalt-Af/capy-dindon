@@ -6,6 +6,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import type { Profile } from '../quality';
 import { GRADE, setShaderFog, tickShaders } from './materials';
+import { PaintedBackdrop, type ArtId } from './painted';
 
 export type Mood = 'day' | 'dusk' | 'night' | 'pantry' | 'party' | 'evolve';
 
@@ -73,6 +74,7 @@ export class Stage {
   private hit = 0;
   private clock = 0;
   private fixed: { x: number; y: number } | null = null;
+  private art: PaintedBackdrop | null = null;
   dpr = 1;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -196,7 +198,18 @@ export class Stage {
     fog.near = mood.fogNear;
     fog.far = mood.fogFar;
     setShaderFog(mood.fog);
-    this.stars.visible = name === 'night' || name === 'pantry';
+    this.stars.visible = !this.art && (name === 'night' || name === 'pantry');
+  }
+
+  useArt(id: ArtId | null): void {
+    this.art?.dispose();
+    this.art = null;
+    this.sky.visible = true;
+    if (!id) return;
+    this.art = new PaintedBackdrop(id);
+    this.scene.add(this.art.group);
+    this.sky.visible = false;
+    this.stars.visible = false;
   }
 
   follow(x: number, y: number, distance = 12, lookahead = 0): void {
@@ -280,11 +293,13 @@ export class Stage {
     this.key.target.position.set(this.camera.position.x, this.camera.position.y - 1, 0);
     this.key.target.updateMatrixWorld();
     this.rim.position.set(this.camera.position.x + 3, this.camera.position.y + 5, -8);
+    this.art?.layout(this.camera);
     this.composer.render();
   }
 
   clear(): void {
     this.root.clear();
+    this.useArt(null);
   }
 
   project(x: number, y: number, z = 0): { x: number; y: number } {

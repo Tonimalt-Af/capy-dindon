@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { basic, featherMaterial, GEO, setGrassFocus, softCircle, toon } from './materials';
+import { loadPoses, poseAspect, poseTexture, type Pose } from './painted';
 
 const barrel = new THREE.SphereGeometry(1, 32, 22);
 const fuzzes = new Map<string, THREE.MeshBasicMaterial>();
@@ -51,6 +52,8 @@ export class Capybara {
   private readonly wattle: THREE.Object3D;
   private readonly shadow: THREE.Mesh;
   private mood: Mood = 'idle';
+  private readonly portrait: THREE.Mesh;
+  private painted = false;
   private facing: 1 | -1 = 1;
   private readonly focus = new THREE.Vector3();
   private plumeTilt = 0.42;
@@ -100,6 +103,23 @@ export class Capybara {
     blob.scale.set(0.58, 0.72, 1);
     this.shadow = blob;
     this.root.add(blob);
+    const portraitMat = new THREE.MeshBasicMaterial({
+      transparent: true,
+      alphaTest: 0.08,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+    });
+    this.portrait = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), portraitMat);
+    this.portrait.visible = false;
+    this.portrait.position.y = 0.7;
+    this.portrait.renderOrder = 4;
+    this.root.add(this.portrait);
+    void loadPoses().then(() => {
+      this.painted = true;
+      this.bob.visible = false;
+      this.portrait.visible = true;
+    }).catch(() => undefined);
   }
 
   private body(): void {
@@ -282,6 +302,10 @@ export class Capybara {
 
   update(dt: number, motion: { speed: number; vy: number; grounded: boolean; landed: boolean }): void {
     this.time += dt;
+    if (this.painted) {
+      this.paintPose(motion);
+      return;
+    }
     this.root.rotation.y = this.facing === 1 ? 0 : Math.PI;
     if (motion.landed && !this.calm) this.sqv = -9.5;
     const spring = this.calm ? 36 : 72;
@@ -376,6 +400,31 @@ export class Capybara {
     const grounded = motion.grounded;
     this.shadow.scale.set(grounded ? 0.62 : 0.38, grounded ? 0.78 : 0.46, 1);
     (this.shadow.material as THREE.MeshBasicMaterial).opacity = grounded ? 0.3 : 0.12;
+  }
+
+  private paintPose(motion: { speed: number; vy: number; grounded: boolean }): void {
+    const grown = this.form !== 'legend' && (this.stage === 1 || this.featherGrow > 0.62);
+    let pose: Pose = 'idle';
+    if (this.form === 'legend') pose = 'capydindon';
+    else if (grown) pose = 'capyplume';
+    else if (!motion.grounded) pose = 'jump';
+    else if (this.mood === 'sleep') pose = 'sleep';
+    else if (this.mood === 'happy' || this.mood === 'wow') pose = 'joy';
+    else if (motion.speed > 0.35) pose = Math.floor(this.time * 8) % 2 === 0 ? 'walk1' : 'walk2';
+    const tex = poseTexture(pose);
+    if (tex) {
+      const mat = this.portrait.material as THREE.MeshBasicMaterial;
+      if (mat.map !== tex) {
+        mat.map = tex;
+        mat.needsUpdate = true;
+      }
+    }
+    const height = pose === 'sleep' ? 0.78 : pose === 'capydindon' ? 1.75 : pose === 'capyplume' ? 1.5 : 1.32;
+    const width = height * poseAspect(pose);
+    this.portrait.scale.set(this.facing * width, height, 1);
+    this.portrait.position.y = height * 0.46;
+    this.shadow.scale.set(motion.grounded ? 0.72 : 0.4, 0.86, 1);
+    (this.shadow.material as THREE.MeshBasicMaterial).opacity = motion.grounded ? 0.28 : 0.1;
   }
 }
 

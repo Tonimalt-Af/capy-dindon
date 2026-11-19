@@ -28,7 +28,7 @@ async function shot(page, name) {
     const fade = document.querySelector('#fade');
     return fade && !fade.classList.contains('on') && window.__CAPY__?.ready;
   });
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(900);
   const file = path.join(out, `${name}.png`);
   await page.screenshot({ path: file });
   console.log('shot', file);
@@ -38,6 +38,7 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'],
 });
 
+if (process.env.VIDEO !== '1') {
 const still = await browser.newContext({ viewport: { width: 1366, height: 1024 }, deviceScaleFactor: 1 });
 await still.addInitScript((data) => localStorage.setItem('capydindon.save.v1', JSON.stringify(data)), save);
 const page = await still.newPage();
@@ -59,9 +60,9 @@ console.log('perf', perf);
 await still.close();
 
 if (only) {
-  await still.close();
   await browser.close();
   process.exit(0);
+}
 }
 const phone = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
 await phone.addInitScript((data) => localStorage.setItem('capydindon.save.v1', JSON.stringify(data)), save);

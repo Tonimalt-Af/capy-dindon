@@ -1,5 +1,9 @@
 # Licences
 
+## Peintures
+
+Les sprites de Capy et les décors en couches (`public/assets/art/`) sont des peintures originales ajoutées par Tonimalt-Af. Le compositing (ciel, loin, sol, milieu et décalage vertical) est décrit dans `public/assets/art/README.md`.
+
 ## Création originale
 
 Code, musique synthétisée, effets sonores, interface, Capy, décors et icônes sont des créations originales pour ce projet.

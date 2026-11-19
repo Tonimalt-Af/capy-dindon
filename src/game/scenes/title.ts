@@ -18,6 +18,7 @@ export class TitleScene implements Scene {
     const { stage, ui, audio, save, flags } = this.ctx;
     stage.clear();
     stage.mood('day');
+    stage.useArt('camp-des-nuages');
     const close = flags.shot === 'close';
     stage.hold(close ? 2.02 : 1.15, close ? -0.55 : 0.95, close ? 2.85 : 9.2);
     if (close) stage.snap();

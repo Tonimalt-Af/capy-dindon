@@ -44,6 +44,7 @@ export class HubScene implements Scene {
     const { stage, save, audio } = this.ctx;
     stage.clear();
     stage.mood(save.data.stage === 1 ? 'evolve' : 'day');
+    stage.useArt(save.data.stage === 1 ? 'eveil' : 'camp-des-nuages');
     audio.playSong('hub');
     const root = stage.root;
     for (const plat of FLOOR) {

@@ -27,6 +27,7 @@ export class EvolveScene implements Scene {
     const { stage, audio } = this.ctx;
     stage.clear();
     stage.mood('evolve');
+    stage.useArt('eveil');
     stage.hold(1.15, 0.7, 7.6);
     audio.playSong('evolve');
     const root = stage.root;

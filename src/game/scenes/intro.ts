@@ -21,6 +21,7 @@ export class IntroScene implements Scene {
     this.stop = new AbortController();
     const { stage, audio } = this.ctx;
     stage.clear();
+    stage.useArt('camp-des-nuages');
     this.grove = createGrove(0);
     stage.root.add(this.grove.group);
     stage.hold(1.05, 1.0, 9.4);

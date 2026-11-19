@@ -40,6 +40,7 @@ export class ParadeScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('party');
+    stage.useArt('parade');
     stage.hold(0, 1.05, 11.4);
     audio.playSong('parade');
     const root = stage.root;

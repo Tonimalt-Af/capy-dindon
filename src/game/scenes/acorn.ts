@@ -35,6 +35,7 @@ export class AcornScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('day');
+    stage.useArt('iles-aux-glands');
     audio.playSong('glands');
     const root = stage.root;
     const sampled = sampleLevel(this.sim.level, 0, 0);

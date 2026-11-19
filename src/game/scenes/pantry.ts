@@ -33,6 +33,7 @@ export class PantryScene implements Scene {
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('pantry');
+    stage.useArt('garde-manger');
     audio.playSong('pantry');
     const root = stage.root;
     const wall = toon('#2a2038').clone();
