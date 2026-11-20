@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PANTRY, PuzzleSim, puzzleIntent } from '../logic/puzzle';
-import { Capybara } from '../render/capybara';
+import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { toon } from '../render/materials';
 import { crateModel, featherModel } from '../render/scenery';
@@ -35,7 +35,7 @@ export class PantryScene implements Scene {
     stage.paintMode();
     audio.playSong('pantry');
     const root = stage.root;
-    this.backdrop = new PaintedBackdrop('garde-manger', { span: 26, groundY: 0 });
+    this.backdrop = new PaintedBackdrop('garde-manger', { span: 26, groundY: 0, apron: 0.7, apronColor: '#c17a45' });
     root.add(this.backdrop.group);
     for (const plate of PANTRY.plates) {
       const pad = new THREE.Mesh(new THREE.BoxGeometry(plate.w, 0.08, 0.8), toon('#8d6bdb').clone());
@@ -64,6 +64,7 @@ export class PantryScene implements Scene {
     root.add(this.feather);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
+    this.capy.setLight(SCENE_LIGHT.pantry);
     root.add(this.capy.root);
     this.sparks = new Particles(root, this.ctx.reduced());
     this.ctx.ui.setHud(`
@@ -168,13 +169,9 @@ export class PantryScene implements Scene {
     if (this.gate) this.gate.position.y += ((this.sim.gateOpen ? 2.8 : 0) - this.gate.position.y) * Math.min(1, dt * 4);
     if (this.feather) this.feather.rotation.z += dt;
     this.sparks?.update(dt, player.x);
-    this.backdrop?.sync(this.ctx.stage.camera);
-    const aspect = this.ctx.stage.camera.aspect || 1.33;
-    const distance = 16.5;
-    const halfW = Math.tan(THREE.MathUtils.degToRad(14)) * distance * aspect;
-    const limit = Math.max(0, 13 - halfW);
-    const camX = Math.max(-limit, Math.min(limit, player.x));
-    this.ctx.stage.follow(camX, 0.85, distance, 0);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, player.x);
+    if (shot) this.ctx.stage.follow(shot.x, shot.y, shot.distance, 0);
+    this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
   }
 
   unmount(): void {

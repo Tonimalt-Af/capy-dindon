@@ -1,4 +1,4 @@
-import { Capybara, createLegend } from '../render/capybara';
+import { Capybara, SCENE_LIGHT, createLegend } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { PaintedBackdrop } from '../render/painted';
 import { EVOLVE } from '../text';
@@ -24,15 +24,17 @@ export class EvolveScene implements Scene {
     stage.clear();
     stage.mood('evolve');
     stage.paintMode();
-    stage.hold(2.35, 0.55, 13.4);
+    stage.hold(1.6, 0.32, 14);
     audio.playSong('evolve');
     const root = stage.root;
     this.backdrop = new PaintedBackdrop('eveil', { span: 20, groundY: 0.02 });
     root.add(this.backdrop.group);
+    this.capy.setLight(SCENE_LIGHT.evolve);
     this.capy.root.position.set(2.55, 0, 0.55);
     this.capy.turn(1);
     root.add(this.capy.root);
     this.legend = createLegend();
+    this.legend.setLight(SCENE_LIGHT.evolve);
     this.legend.root.scale.setScalar(1.16);
     this.legend.root.position.set(5.05, 0, 0.25);
     this.legend.turn(-1);
@@ -102,7 +104,9 @@ export class EvolveScene implements Scene {
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     this.legend?.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
-    this.backdrop?.sync(this.ctx.stage.camera);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, 1.35);
+    if (shot) this.ctx.stage.hold(shot.x, shot.y, shot.distance);
+    this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     this.sparks?.update(dt, 0);
   }
 

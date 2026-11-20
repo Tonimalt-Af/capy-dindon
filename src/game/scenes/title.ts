@@ -19,10 +19,14 @@ export class TitleScene implements Scene {
     stage.mood('day');
     stage.paintMode();
     const close = flags.shot === 'close';
-    stage.hold(close ? 1.7 : -0.15, close ? 0.4 : 0.62, close ? 8.4 : 11.6);
-    if (close) stage.snap();
     this.grove = createGrove(save.data.stage);
     stage.root.add(this.grove.group);
+    if (close) stage.hold(1.7, 0.4, 8.4);
+    else {
+      const shot = this.grove.backdrop.place(stage.camera.aspect, -0.35);
+      stage.hold(shot.x, shot.y, shot.distance);
+    }
+    if (close) stage.snap();
     this.grove.backdrop.sync(stage.camera);
     audio.playSong('title');
     const cont = hasProgress(save.data);
@@ -110,7 +114,12 @@ export class TitleScene implements Scene {
     grove.legend.calm = this.ctx.reduced();
     grove.legend.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     grove.feather.rotation.z = Math.sin(this.time * 1.4) * 0.15;
-    grove.backdrop.sync(this.ctx.stage.camera);
+    const close = this.ctx.flags.shot === 'close';
+    if (!close) {
+      const shot = grove.backdrop.place(this.ctx.stage.camera.aspect, -0.35);
+      this.ctx.stage.hold(shot.x, shot.y, shot.distance);
+    }
+    grove.backdrop.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     if (this.ctx.flags.demo && !this.leaving && this.time > 0.8 && this.ctx.ui.modal.childElementCount === 0) {
       this.leaving = true;
       this.ctx.newGame();

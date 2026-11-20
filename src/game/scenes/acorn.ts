@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AcornSim, acornIntent, sampleLevel } from '../logic/acorn';
 import type { SimEvent } from '../logic/types';
-import { Capybara } from '../render/capybara';
+import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { groundIsland, PaintedBackdrop } from '../render/painted';
 import { acornModel, pumpkinModel } from '../render/scenery';
@@ -70,6 +70,7 @@ export class AcornScene implements Scene {
     root.add(this.portal);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
+    this.capy.setLight(SCENE_LIGHT.day);
     root.add(this.capy.root);
     this.sparks = new Particles(root, this.ctx.reduced());
     this.ctx.ui.setHud(`
@@ -209,8 +210,9 @@ export class AcornScene implements Scene {
       ((this.portal as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = open ? 0.95 : 0.35;
     }
     this.sparks?.update(dt, player.x);
-    this.backdrop?.sync(this.ctx.stage.camera);
-    this.ctx.stage.follow(player.x, Math.max(0.55, player.y), 12.4, player.facing * 0.32);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, player.x + player.facing * 0.22, Math.max(0.62, player.y * 0.55));
+    if (shot) this.ctx.stage.follow(shot.x, shot.y, shot.distance, 0);
+    this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     for (const plat of this.sim.level.platforms) {
       if (!plat.mover) continue;
       const solid = this.sim.solids.find((s) => s.id === plat.id);

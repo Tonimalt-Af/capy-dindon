@@ -22,11 +22,16 @@ export class Game {
   private pauseLocked = false;
   private token = 0;
   private fps = 60;
+  private frameMs = 16;
+  private renderMs = 0;
+  private draws = 0;
+  private triangles = 0;
   private slowFrames = 0;
   private tier = resolveTier('auto');
   private software = false;
   private fpsFrames = 0;
   private fpsAcc = 0;
+  private renderAcc = 0;
   private portrait = window.matchMedia('(orientation: portrait)');
 
   constructor(canvas: HTMLCanvasElement) {
@@ -36,6 +41,9 @@ export class Game {
     }
     this.stage = new Stage(canvas);
     this.software = softwareGl(this.stage.renderer.getContext());
+    // SwiftShader misses 60fps once a tablet buffer is much past ~600k pixels.
+    // Stay under that budget. Real GPUs keep the quality-tier ratio.
+    if (this.software) this.stage.limitPaintPixels(600_000);
     this.input = new Input(canvas, must('#touch'));
     this.ctx = this.makeContext();
     this.applyTune();
@@ -192,14 +200,12 @@ export class Game {
 
   private frame = (now: number): void => {
     requestAnimationFrame(this.frame);
-    const dt = Math.min(this.flags.demo ? 0.1 : 0.033, (now - (this.last ?? now)) / 1000) || 0;
+    const raw = this.last ? (now - this.last) / 1000 : 0;
+    const dt = Math.min(this.flags.demo ? 0.1 : 0.033, raw) || 0;
     this.last = now;
-    this.fpsFrames += 1;
-    this.fpsAcc += dt;
-    if (this.fpsAcc >= 0.5) {
-      this.fps = Math.round(this.fpsFrames / this.fpsAcc);
-      this.fpsFrames = 0;
-      this.fpsAcc = 0;
+    if (raw > 0 && raw < 0.5) {
+      this.fpsFrames += 1;
+      this.fpsAcc += raw;
     }
     this.input.begin();
     if (this.input.frame.pausePressed) this.togglePause();
@@ -210,6 +216,18 @@ export class Game {
     const started = performance.now();
     this.stage.render(dt, this.save.data.settings.reducedMotion);
     const cost = performance.now() - started;
+    const stats = this.stage.stats();
+    this.draws = stats.calls;
+    this.triangles = stats.triangles;
+    if (raw > 0 && raw < 0.5) this.renderAcc += cost;
+    if (this.fpsAcc >= 0.5) {
+      this.fps = Math.round(this.fpsFrames / this.fpsAcc);
+      this.frameMs = (this.fpsAcc / this.fpsFrames) * 1000;
+      this.renderMs = this.renderAcc / this.fpsFrames;
+      this.fpsFrames = 0;
+      this.fpsAcc = 0;
+      this.renderAcc = 0;
+    }
     if (this.save.data.settings.quality === 'auto' && cost > 28) {
       this.slowFrames += 1;
       if (this.slowFrames >= 6 && this.tier !== 'low') {
@@ -231,6 +249,10 @@ export class Game {
         relics: relicCount(this.save.data),
         stage: this.save.data.stage,
         fps: this.fps,
+        frameMs: Math.round(this.frameMs * 10) / 10,
+        renderMs: Math.round(this.renderMs * 10) / 10,
+        draws: this.draws,
+        triangles: this.triangles,
         dpr: this.stage.dpr,
         quality: resolveTier(this.save.data.settings.quality),
         challenge: this.scene?.getProgress

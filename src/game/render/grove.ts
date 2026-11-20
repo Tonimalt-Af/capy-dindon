@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Capybara, createLegend } from './capybara';
+import { Capybara, SCENE_LIGHT, createLegend } from './capybara';
 import { featherModel } from './scenery';
 import { PaintedBackdrop } from './painted';
 
@@ -19,6 +19,7 @@ export function createGrove(stage: 0 | 1): Grove {
   const capy = new Capybara();
   capy.stage = stage;
   capy.featherGrow = stage;
+  capy.setLight(stage === 1 ? SCENE_LIGHT.evolve : SCENE_LIGHT.day);
   capy.root.position.set(1.7, 0, 0.5);
   group.add(capy.root);
   const feather = featherModel();
@@ -30,6 +31,7 @@ export function createGrove(stage: 0 | 1): Grove {
   vision.visible = false;
   vision.position.set(3.6, 0.15, -0.4);
   const legend = createLegend();
+  legend.setLight(SCENE_LIGHT.evolve);
   legend.root.scale.setScalar(1.2);
   legend.turn(-1);
   vision.add(legend.root);

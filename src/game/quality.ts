@@ -27,10 +27,10 @@ export function resolveTier(choice: QualityChoice): Tier {
 export function profileFor(tier: Tier, devicePixelRatio = 1): Profile {
   const dpr = Math.max(1, devicePixelRatio);
   if (tier === 'low') {
-    return { tier, dpr: Math.min(1, dpr), shadowSize: 512, bloom: false, bloomStrength: 0 };
+    return { tier, dpr: Math.min(1, dpr), shadowSize: 256, bloom: false, bloomStrength: 0 };
   }
   if (tier === 'medium') {
-    return { tier, dpr: Math.min(1.35, dpr), shadowSize: 1024, bloom: true, bloomStrength: 0.08 };
+    return { tier, dpr: Math.min(1.1, dpr), shadowSize: 512, bloom: true, bloomStrength: 0.16 };
   }
-  return { tier, dpr: Math.min(1.6, dpr), shadowSize: 1536, bloom: true, bloomStrength: 0.12 };
+  return { tier, dpr: Math.min(1.25, dpr), shadowSize: 768, bloom: true, bloomStrength: 0.22 };
 }

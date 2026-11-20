@@ -24,7 +24,8 @@ export class IntroScene implements Scene {
     stage.paintMode();
     this.grove = createGrove(0);
     stage.root.add(this.grove.group);
-    stage.hold(0.35, 0.7, 11.2);
+    const shot = this.grove.backdrop.place(stage.camera.aspect, 0.15);
+    stage.hold(shot.x, shot.y, shot.distance);
     this.grove.backdrop.sync(stage.camera);
     audio.playSong('title');
     if (this.ctx.flags.shot === 'intro') this.beat = 1;
@@ -88,7 +89,9 @@ export class IntroScene implements Scene {
     grove.capy.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
     grove.legend.calm = this.ctx.reduced();
     grove.legend.update(dt, { speed: 0, vy: 0, grounded: true, landed: false });
-    grove.backdrop.sync(this.ctx.stage.camera);
+    const shot = grove.backdrop.place(this.ctx.stage.camera.aspect, 0.15);
+    this.ctx.stage.hold(shot.x, shot.y, shot.distance);
+    grove.backdrop.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     if (this.beat === 1) {
       const y = 3.2 - Math.min(1, this.beatTime / 1.1) * 2;
       grove.feather.position.y = Math.max(1.15, y);

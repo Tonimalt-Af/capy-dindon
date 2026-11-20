@@ -74,13 +74,16 @@ export class Stage {
   private clock = 0;
   private fixed: { x: number; y: number } | null = null;
   private painted = false;
+  /** Drawing-buffer pixel budget for software GL. 0 keeps the quality-tier ratio. */
+  private paintBudget = 0;
   dpr = 1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       alpha: false,
+      stencil: false,
       powerPreference: 'high-performance',
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -204,9 +207,16 @@ export class Stage {
     }
   }
 
+  limitPaintPixels(pixels: number): void {
+    this.paintBudget = pixels;
+    this.resize();
+  }
+
   paintMode(on = true): void {
     this.painted = on;
     this.sky.visible = !on;
+    this.renderer.shadowMap.enabled = !on;
+    this.key.castShadow = !on;
     if (on) this.stars.visible = false;
   }
 
@@ -254,12 +264,15 @@ export class Stage {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
     if (width < 2 || height < 2) return;
-    this.renderer.setPixelRatio(this.dpr);
+    const wanted = width * height * this.dpr * this.dpr;
+    const scale = this.paintBudget > 0 ? Math.min(1, Math.sqrt(this.paintBudget / wanted)) : 1;
+    this.renderer.setPixelRatio(this.dpr * scale);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.composer.setSize(width, height);
-    this.bloom.resolution.set(Math.max(1, width * 0.5), Math.max(1, height * 0.5));
+    this.bloom.resolution.set(Math.max(1, width * 0.25), Math.max(1, height * 0.25));
+    this.bloom.threshold = 0.92;
   }
 
   render(dt: number, reduced: boolean): void {
@@ -291,7 +304,15 @@ export class Stage {
     this.key.target.position.set(this.camera.position.x, this.camera.position.y - 1, 0);
     this.key.target.updateMatrixWorld();
     this.rim.position.set(this.camera.position.x + 3, this.camera.position.y + 5, -8);
-    this.composer.render();
+    if (this.painted) this.renderer.render(this.scene, this.camera);
+    else this.composer.render();
+  }
+
+  stats(): { calls: number; triangles: number } {
+    return {
+      calls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+    };
   }
 
   clear(): void {

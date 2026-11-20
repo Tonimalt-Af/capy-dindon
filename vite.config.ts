@@ -25,8 +25,21 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}', 'assets/art/characters/*.webp'],
+        globIgnores: ['**/assets/art/scenes/**'],
         navigateFallback: '/capy-dindon/index.html',
+        navigateFallbackDenylist: [/^\/capy-dindon\/assets\//],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/art\/scenes\/.+\.webp$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'capy-scenes',
+              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -1,7 +1,7 @@
 import { canEvolve, relicCount } from '../logic/evolution';
 import { Platformer } from '../logic/physics';
 import type { Solid } from '../logic/types';
-import { Capybara } from '../render/capybara';
+import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { PaintedBackdrop } from '../render/painted';
 import { PLACES, TEXT } from '../text';
 import { hudChrome, wireHud } from '../ui';
@@ -44,6 +44,7 @@ export class HubScene implements Scene {
     this.solids.push({ id: 'ground', x: land.center, y: -h / 2, w: land.width, h, dx: 0, dy: 0 });
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
+    this.capy.setLight(save.data.stage === 1 ? SCENE_LIGHT.evolve : SCENE_LIGHT.day);
     root.add(this.capy.root);
     this.player = new Platformer(-3.4, 1.2);
     this.paint();
@@ -109,12 +110,16 @@ export class HubScene implements Scene {
     this.capy.turn(this.player.facing);
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.player.vx), vy: this.player.vy, grounded: this.player.grounded, landed: motion.landed });
-    this.ctx.stage.follow(this.player.x, 0.72, 12.2, this.player.facing * 0.28);
-    this.backdrop?.sync(this.ctx.stage.camera);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, this.player.x + this.player.facing * 0.16);
+    if (shot) this.ctx.stage.follow(shot.x, shot.y, shot.distance, 0);
+    this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     this.near = GATES.find((gate) => Math.abs(this.player.x - gate.x) < 0.85) ?? null;
     if (this.prompt) {
-      this.prompt.hidden = !this.near;
-      this.prompt.textContent = this.near ? this.labelFor(this.near.id) : '';
+      const hide = !this.near;
+      if (this.prompt.hidden !== hide) {
+        this.prompt.hidden = hide;
+        this.prompt.textContent = this.near ? this.labelFor(this.near.id) : '';
+      }
     }
     const use = input.actionPressed || (demo && this.near?.id === goal?.id);
     if (use && this.near) {

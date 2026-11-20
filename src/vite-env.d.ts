@@ -7,6 +7,10 @@ interface CapyState {
   relics: number;
   stage: 0 | 1;
   fps: number;
+  frameMs: number;
+  renderMs: number;
+  draws: number;
+  triangles: number;
   dpr: number;
   quality: string;
   challenge: { id: string; won: boolean; lost: boolean; progress: number; target: number } | null;

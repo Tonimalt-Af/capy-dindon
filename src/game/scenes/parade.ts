@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createParade, paradeBotAction, PARADE, stepParade, type ParadeState } from '../logic/parade';
-import { Capybara } from '../render/capybara';
+import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { PaintedBackdrop } from '../render/painted';
 import { pumpkinModel, turkeyModel } from '../render/scenery';
@@ -41,7 +41,7 @@ export class ParadeScene implements Scene {
     stage.clear();
     stage.mood('party');
     stage.paintMode();
-    stage.hold(0.15, 0.65, 15.2);
+    stage.hold(0.15, 0.62, 14);
     audio.playSong('parade');
     const root = stage.root;
     this.backdrop = new PaintedBackdrop('parade', { span: 18, groundY: 0.02 });
@@ -58,6 +58,7 @@ export class ParadeScene implements Scene {
     });
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
+    this.capy.setLight(SCENE_LIGHT.party);
     this.capy.root.position.set(-3.5, 0, 0.6);
     root.add(this.capy.root);
     this.sparks = new Particles(root, this.ctx.reduced());
@@ -187,7 +188,9 @@ export class ParadeScene implements Scene {
     this.capy.turn(1);
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.whackX - this.capyX), vy: 0, grounded: true, landed: false });
-    this.backdrop?.sync(this.ctx.stage.camera);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, 0.15);
+    if (shot) this.ctx.stage.hold(shot.x, shot.y, shot.distance);
+    this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     this.party += dt;
     if (!this.ctx.reduced() && this.party > 0.55) {
       this.party = 0;

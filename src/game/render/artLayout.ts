@@ -19,7 +19,7 @@ export const MID_DY: Record<ArtScene, number> = {
 export const GRASS_FRAC: Record<ArtScene, number> = {
   'camp-des-nuages': 0.46,
   'iles-aux-glands': 0.51,
-  'garde-manger': 0.925,
+  'garde-manger': 0.97,
   parade: 0.5,
   eveil: 0.45,
 };
@@ -62,4 +62,96 @@ export function walkBounds(scene: ArtScene, span: number, centerX = 0): { left: 
 export function groundSpanFor(scene: ArtScene, walkWidth: number): number {
   const walk = WALK_FRAC[scene];
   return walkWidth / (walk.right - walk.left);
+}
+
+export interface PxRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Opaque-ish content of each trimmed layer, in source pixels. Sky stays full-frame. */
+export const LAYER_BOUNDS: Record<ArtScene, Record<'far' | 'ground' | 'mid', PxRect>> = {
+  'camp-des-nuages': {
+    far: { x0: 10, y0: 29, x1: 1263, y1: 482 },
+    ground: { x0: 8, y0: 233, x1: 1276, y1: 522 },
+    mid: { x0: 60, y0: 174, x1: 1278, y1: 616 },
+  },
+  'iles-aux-glands': {
+    far: { x0: 25, y0: 20, x1: 1264, y1: 486 },
+    ground: { x0: 8, y0: 235, x1: 1277, y1: 538 },
+    mid: { x0: 5, y0: 235, x1: 1280, y1: 612 },
+  },
+  'garde-manger': {
+    far: { x0: 275, y0: 31, x1: 1218, y1: 422 },
+    ground: { x0: 0, y0: 487, x1: 1280, y1: 680 },
+    mid: { x0: 3, y0: 0, x1: 472, y1: 720 },
+  },
+  parade: {
+    far: { x0: 12, y0: 28, x1: 1264, y1: 377 },
+    ground: { x0: 6, y0: 292, x1: 1280, y1: 592 },
+    mid: { x0: 4, y0: 282, x1: 1269, y1: 594 },
+  },
+  eveil: {
+    far: { x0: 7, y0: 4, x1: 1275, y1: 493 },
+    ground: { x0: 8, y0: 230, x1: 1276, y1: 554 },
+    mid: { x0: 17, y0: 216, x1: 1268, y1: 614 },
+  },
+};
+
+/** World width the composition wants on screen, before the painted frame clamps it. */
+export const FRAME: Record<ArtScene, { want: number; focusY: number; bias: number }> = {
+  'camp-des-nuages': { want: 13.2, focusY: 0.4, bias: -0.75 },
+  'iles-aux-glands': { want: 12.6, focusY: 0.72, bias: 0 },
+  'garde-manger': { want: 12.4, focusY: 1.45, bias: 0 },
+  parade: { want: 13.4, focusY: 0.62, bias: 0 },
+  eveil: { want: 13.6, focusY: 0.32, bias: -0.35 },
+};
+
+export interface FrameCover {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+const HALF_FOV = Math.tan((14 * Math.PI) / 180);
+
+/** Distance and camera x that keep a painted frame covering the view. */
+export function fitFrame(opts: {
+  aspect: number;
+  want: number;
+  lookY: number;
+  focusX: number;
+  cover: FrameCover | null;
+  minDistance?: number;
+  maxDistance?: number;
+}): { distance: number; x: number } {
+  const aspect = Math.max(0.9, opts.aspect);
+  let distance = opts.want / (2 * HALF_FOV * aspect);
+  distance = Math.max(opts.minDistance ?? 9.4, Math.min(opts.maxDistance ?? 20, distance));
+  if (!opts.cover) return { distance, x: opts.focusX };
+  const margin = 0.24;
+  const roomAbove = opts.cover.top - margin - opts.lookY;
+  const roomBelow = opts.lookY - (opts.cover.bottom + margin);
+  const maxHalf = Math.min(roomAbove, roomBelow);
+  if (maxHalf > 0.7) distance = Math.min(distance, maxHalf / HALF_FOV);
+  const halfW = HALF_FOV * distance * aspect;
+  const minX = opts.cover.left + halfW + 0.08;
+  const maxX = opts.cover.right - halfW - 0.08;
+  const x = minX > maxX ? (opts.cover.left + opts.cover.right) / 2 : Math.min(maxX, Math.max(minX, opts.focusX));
+  return { distance, x };
+}
+
+/** World rectangle of a full scene plate whose grass row sits on `groundY`. */
+export function imageCover(span: number, groundY: number, grassFrac: number, centerX = 0): FrameCover {
+  const height = planeHeight(span);
+  const centerY = planeCenterY(span, groundY, grassFrac);
+  return {
+    left: centerX - span / 2,
+    right: centerX + span / 2,
+    top: centerY + height / 2,
+    bottom: centerY - height / 2,
+  };
 }

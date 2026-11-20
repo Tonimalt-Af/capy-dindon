@@ -43,8 +43,12 @@ const MID_DY = {
 };
 ```
 
+## Finishing
+
+`scripts/finish-art.py` defringes the cutouts, fills the parade arch, matches the prop grass to the island, and warms the Éveil sun. It is a one-shot step: `python3 scripts/finish-art.py` refuses to run twice unless `--force` is passed. `--touchup` and `--sun` are the later passes, and each refuses to run once its stamp is already in `finish.json`.
+
 ## Totals
 
 - 28 WebP files
-- 2.70 MiB (2,827,986 bytes)
+- 2.43 MiB after finishing (the source pack was 2.70 MiB)
 
