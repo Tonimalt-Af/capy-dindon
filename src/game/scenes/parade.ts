@@ -181,8 +181,9 @@ export class ParadeScene implements Scene {
       const showTurkey = up && hole?.kind === 'turkey';
       actor.turkey.root.visible = showTurkey;
       actor.bomb.root.visible = up && hole?.kind === 'bomb';
-      actor.turkey.root.position.y = up ? -1.05 * (1 - rise) : -1.15;
-      actor.bomb.root.position.y = up ? -0.5 * (1 - rise) : -0.7;
+      // Stay in the hole. A deep start draws the whole sprite across the cliff.
+      actor.turkey.root.position.y = up ? -0.22 * (1 - rise) : -0.45;
+      actor.bomb.root.position.y = up ? -0.16 * (1 - rise) : -0.4;
       const popping = up && rise < 0.98;
       const frame = popping ? walk[Math.floor(this.time * 8 + index) % walk.length] ?? 'turkeyIdle' : 'turkeyIdle';
       actor.turkey.setFrame(frame);
