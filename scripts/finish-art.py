@@ -8,6 +8,7 @@ because the grass grade and the sun grade are not idempotent.
 
   python3 scripts/finish-art.py
   python3 scripts/finish-art.py --touchup
+  python3 scripts/finish-art.py --fringe
   python3 scripts/finish-art.py --root public/assets/art --force
 """
 
@@ -18,11 +19,13 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 STAMP = "finish-art-1"
 TOUCHUP = "finish-art-2"
 SUN = "finish-art-3"
+FRINGE = "finish-art-4"
+LIP = "finish-art-5"
 ART_W = 1280
 ART_H = 720
 
@@ -273,6 +276,79 @@ def tone_sun(arr: np.ndarray) -> np.ndarray:
     return warm_sun_core(out)
 
 
+def clear_dark_fringe(arr: np.ndarray) -> np.ndarray:
+    """Drop near-black partial pixels. They read as a hard halo once a cutout sits on a bright sky."""
+    out = arr.copy()
+    rgb = out[:, :, :3]
+    alpha = out[:, :, 3]
+    dark = (rgb.max(axis=2) <= 22) & (alpha > 0) & (alpha < 252)
+    out[dark, 3] = 0
+    bled = bleed(out[:, :, :3], out[:, :, 3], 8)
+    edge = out[:, :, 3] < 250
+    out[:, :, :3][edge] = np.clip(bled[edge], 0, 255).astype(np.uint8)
+    return out
+
+
+def dilate(mask: np.ndarray, radius: int) -> np.ndarray:
+    current = mask.astype(bool)
+    for _ in range(radius):
+        grown = current.copy()
+        for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            grown |= shift(current.astype(np.uint8), dy, dx).astype(bool)
+        current = grown
+    return current
+
+
+def feather_halo(arr: np.ndarray) -> np.ndarray:
+    """The Éveil sun disc is edged with opaque black. Replace that arc with a soft gold falloff."""
+    rgb = arr[:, :, :3].astype(np.float32)
+    alpha = arr[:, :, 3]
+    lum = rgb.mean(axis=2)
+    bright = (lum > 210) & (alpha > 220)
+    dark = (arr[:, :, :3].max(axis=2) <= 22) & (alpha > 0) & (alpha < 252)
+    halo = dark & dilate(bright, 16)
+    out = clear_dark_fringe(arr)
+    core = (bright & dilate(halo, 2)).astype(np.uint8) * 255
+    if int(core.max()) == 0:
+        return out
+    blurred = np.array(Image.fromarray(core, mode="L").filter(ImageFilter.GaussianBlur(radius=16))).astype(np.float32) / 255
+    room = out[:, :, 3] < 28
+    expand = room & (blurred > 0.04) & dilate(halo, 18)
+    gold = np.array([255.0, 244.0, 208.0], dtype=np.float32)
+    painted = out.copy()
+    painted[:, :, :3][expand] = gold
+    painted[:, :, 3][expand] = np.clip(blurred[expand] * 190, 0, 190).astype(np.uint8)
+    return painted
+
+
+def soften_fringe(root: Path) -> None:
+    camp = root / "scenes" / "camp-des-nuages" / "mid.webp"
+    save(camp, clear_dark_fringe(load(camp)))
+    print("cleared camp/mid fringe")
+    eveil = root / "scenes" / "eveil" / "mid.webp"
+    save(eveil, feather_halo(load(eveil)))
+    print("feathered eveil/mid halo")
+
+
+def fade_sparse_lip(arr: np.ndarray, y0: int = 500) -> np.ndarray:
+    """Melt the sparse grass lip. Mipmaps turn those crumbs into little squares on a bright sky."""
+    out = arr.copy()
+    band = Image.fromarray(out[y0:, :, 3], mode="L")
+    opened = band.filter(ImageFilter.MinFilter(7)).filter(ImageFilter.MaxFilter(5))
+    out[y0:, :, 3] = np.array(opened.filter(ImageFilter.GaussianBlur(radius=1.2)))
+    bled = bleed(out[:, :, :3], out[:, :, 3], 6)
+    soft = np.zeros(out.shape[:2], dtype=bool)
+    soft[y0:, :] = (out[y0:, :, 3] > 0) & (out[y0:, :, 3] < 250)
+    out[:, :, :3][soft] = np.clip(bled[soft], 0, 255).astype(np.uint8)
+    return out
+
+
+def fade_glands_lip(root: Path) -> None:
+    path = root / "scenes" / "iles-aux-glands" / "mid.webp"
+    save(path, fade_sparse_lip(load(path)))
+    print("faded glands/mid lip")
+
+
 def content_bounds(arr: np.ndarray, pad: int = 8) -> dict[str, int]:
     alpha = arr[:, :, 3]
     ys, xs = np.where(alpha > 12)
@@ -341,9 +417,30 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--touchup", action="store_true", help="Lawn, parade grain, and sun core on a finish-art-1 tree")
     parser.add_argument("--sun", action="store_true", help="Pull the remaining pale Éveil core to gold")
+    parser.add_argument("--fringe", action="store_true", help="Clear the camp fringe, feather the Éveil halo, and fade the glands grass lip")
     args = parser.parse_args()
     root = Path(args.root)
     stamp_path = root / "finish.json"
+    if args.fringe:
+        if not stamp_path.exists():
+            raise SystemExit("No finish.json. Run the full finish first.")
+        stamp = json.loads(stamp_path.read_text())
+        version = stamp.get("version")
+        if version == LIP:
+            print("fringe already softened")
+            return
+        if version == FRINGE:
+            fade_glands_lip(root)
+            stamp["version"] = LIP
+            stamp_path.write_text(json.dumps(stamp, indent=2) + "\n")
+            return
+        if version != SUN:
+            raise SystemExit(f"Refusing fringe pass on stamp {version}.")
+        soften_fringe(root)
+        fade_glands_lip(root)
+        stamp["version"] = LIP
+        stamp_path.write_text(json.dumps(stamp, indent=2) + "\n")
+        return
     if args.sun:
         if not stamp_path.exists():
             raise SystemExit("No finish.json. Run the full finish first.")

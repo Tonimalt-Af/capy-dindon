@@ -105,7 +105,7 @@ export const FRAME: Record<ArtScene, { want: number; focusY: number; bias: numbe
   'camp-des-nuages': { want: 13.2, focusY: 0.4, bias: -0.75 },
   'iles-aux-glands': { want: 12.6, focusY: 0.72, bias: 0 },
   'garde-manger': { want: 12.4, focusY: 1.45, bias: 0 },
-  parade: { want: 13.4, focusY: 0.62, bias: 0 },
+  parade: { want: 13.4, focusY: 0.32, bias: 0 },
   eveil: { want: 13.6, focusY: 0.32, bias: -0.35 },
 };
 

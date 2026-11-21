@@ -1,9 +1,7 @@
-import * as THREE from 'three';
 import { PANTRY, PuzzleSim, puzzleIntent } from '../logic/puzzle';
 import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
-import { toon } from '../render/materials';
-import { crateModel, featherModel } from '../render/scenery';
+import { paintedProp, type PropSprite } from '../render/props';
 import { PaintedBackdrop } from '../render/painted';
 import { HELP, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
@@ -15,14 +13,15 @@ export class PantryScene implements Scene {
   private stop = new AbortController();
   private sim = new PuzzleSim();
   private capy = new Capybara();
-  private crates = new Map<string, THREE.Object3D>();
-  private plates = new Map<string, THREE.Mesh>();
-  private gate: THREE.Object3D | null = null;
-  private feather: THREE.Object3D | null = null;
+  private crates = new Map<string, PropSprite>();
+  private plates = new Map<string, PropSprite>();
+  private gate: PropSprite | null = null;
+  private feather: PropSprite | null = null;
   private sparks: Particles | null = null;
   private backdrop: PaintedBackdrop | null = null;
   private finished = false;
   private hold = 0;
+  private time = 0;
 
   constructor(private readonly ctx: GameContext) {}
 
@@ -38,30 +37,26 @@ export class PantryScene implements Scene {
     this.backdrop = new PaintedBackdrop('garde-manger', { span: 26, groundY: 0, apron: 0.7, apronColor: '#c17a45' });
     root.add(this.backdrop.group);
     for (const plate of PANTRY.plates) {
-      const pad = new THREE.Mesh(new THREE.BoxGeometry(plate.w, 0.08, 0.8), toon('#8d6bdb').clone());
-      pad.position.set(plate.x, 0.06, 0.15);
-      root.add(pad);
+      const pad = paintedProp('plateUp', SCENE_LIGHT.pantry);
+      pad.root.position.set(plate.x, 0, 0.08);
+      root.add(pad.root);
       this.plates.set(plate.id, pad);
     }
     for (const spec of this.sim.crates) {
-      const model = crateModel();
-      root.add(model);
+      const model = paintedProp('crate', SCENE_LIGHT.pantry);
+      root.add(model.root);
       this.crates.set(spec.id, model);
     }
-    this.gate = new THREE.Group();
-    for (let i = 0; i < 5; i++) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.6, 0.06), toon('#d7d3e8'));
-      bar.position.set((i - 2) * 0.12, 1.3, 0);
-      this.gate.add(bar);
-    }
-    this.gate.position.set(PANTRY.gate.x, 0, 0.2);
-    root.add(this.gate);
-    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.32, 0.8), toon('#e7c7a1'));
-    pedestal.position.set(PANTRY.feather.x, 0.16, 0.1);
-    root.add(pedestal);
-    this.feather = featherModel();
-    this.feather.position.set(PANTRY.feather.x, 0.7, 0.15);
-    root.add(this.feather);
+    this.gate = paintedProp('gateClosed', SCENE_LIGHT.pantry);
+    this.gate.root.position.set(PANTRY.gate.x, 0, 0.12);
+    root.add(this.gate.root);
+    const pedestal = paintedProp('pedestal', SCENE_LIGHT.pantry);
+    pedestal.root.position.set(PANTRY.feather.x, 0, 0.05);
+    root.add(pedestal.root);
+    this.feather = paintedProp('feather', SCENE_LIGHT.pantry);
+    // The painted table is taller than the step. The quill stands on the tabletop.
+    this.feather.root.position.set(PANTRY.feather.x, 0.5, 0.16);
+    root.add(this.feather.root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     this.capy.setLight(SCENE_LIGHT.pantry);
@@ -161,13 +156,16 @@ export class PantryScene implements Scene {
     this.capy.update(dt, { speed: Math.abs(player.vx), vy: player.vy, grounded: player.grounded, landed: false });
     const pressed = this.sim.platesPressed();
     for (const [id, pad] of this.plates) {
-      pad.position.y = pressed[id] ? 0.02 : 0.06;
-      (pad.material as THREE.MeshToonMaterial).emissive?.set(pressed[id] ? '#d7c4ff' : '#000000');
-      (pad.material as THREE.MeshToonMaterial).emissiveIntensity = pressed[id] ? 0.6 : 0;
+      pad.setFrame(pressed[id] ? 'plateDown' : 'plateUp');
+      pad.root.position.y = pressed[id] ? -0.015 : 0;
     }
-    for (const crate of this.sim.crates) this.crates.get(crate.id)?.position.set(crate.x, crate.y, 0.15);
-    if (this.gate) this.gate.position.y += ((this.sim.gateOpen ? 2.8 : 0) - this.gate.position.y) * Math.min(1, dt * 4);
-    if (this.feather) this.feather.rotation.z += dt;
+    for (const crate of this.sim.crates) {
+      const model = this.crates.get(crate.id);
+      if (model) model.root.position.set(crate.x, crate.y - crate.h / 2, 0.22);
+    }
+    if (this.gate) this.gate.setFrame(this.sim.gateOpen ? 'gateOpen' : 'gateClosed');
+    this.time += dt;
+    if (this.feather) this.feather.root.rotation.z = Math.sin(this.time * 1.4) * 0.08;
     this.sparks?.update(dt, player.x);
     const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, player.x);
     if (shot) this.ctx.stage.follow(shot.x, shot.y, shot.distance, 0);

@@ -45,7 +45,7 @@ function contactShadow(): THREE.Texture {
   return texture;
 }
 
-function spriteQuad(
+export function spriteQuad(
   map: THREE.Texture,
   opts: {
     tint: THREE.Color | string;
@@ -109,7 +109,7 @@ function spriteQuad(
 
 let shadowTexture: THREE.Texture | null = null;
 
-function shadowMap(): THREE.Texture {
+export function contactShadowMap(): THREE.Texture {
   shadowTexture ??= contactShadow();
   return shadowTexture;
 }
@@ -155,7 +155,7 @@ export class Capybara {
     this.shadowOpacity = { value: 0.72 };
     this.shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      spriteQuad(shadowMap(), {
+      spriteQuad(contactShadowMap(), {
         tint: this.light.shadow,
         opacity: this.shadowOpacity,
         depthTest: false,

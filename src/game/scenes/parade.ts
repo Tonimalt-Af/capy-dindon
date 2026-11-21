@@ -1,9 +1,8 @@
-import * as THREE from 'three';
 import { createParade, paradeBotAction, PARADE, stepParade, type ParadeState } from '../logic/parade';
 import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { PaintedBackdrop } from '../render/painted';
-import { pumpkinModel, turkeyModel } from '../render/scenery';
+import { paintedProp, type PropId, type PropSprite } from '../render/props';
 import { HELP, LOSE, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -16,7 +15,9 @@ export class ParadeScene implements Scene {
   private stop = new AbortController();
   private state: ParadeState = createParade(1);
   private capy = new Capybara();
-  private actors: { turkey: THREE.Object3D; bomb: THREE.Object3D }[] = [];
+  private actors: { turkey: PropSprite; bomb: PropSprite }[] = [];
+  private star: PropSprite | null = null;
+  private time = 0;
   private sparks: Particles | null = null;
   private backdrop: PaintedBackdrop | null = null;
   private party = 0;
@@ -41,21 +42,22 @@ export class ParadeScene implements Scene {
     stage.clear();
     stage.mood('party');
     stage.paintMode();
-    stage.hold(0.15, 0.62, 14);
+    stage.hold(-0.5, 0.32, 14);
     audio.playSong('parade');
     const root = stage.root;
     this.backdrop = new PaintedBackdrop('parade', { span: 18, groundY: 0.02 });
     root.add(this.backdrop.group);
     HOLES.forEach((x) => {
-      const turkey = turkeyModel();
-      const bomb = pumpkinModel();
-      turkey.position.set(x, -0.4, 0.2);
-      bomb.position.set(x, -0.4, 0.2);
-      turkey.scale.setScalar(1.15);
-      bomb.scale.setScalar(1.15);
-      root.add(turkey, bomb);
+      const turkey = paintedProp('turkeyIdle', SCENE_LIGHT.party);
+      const bomb = paintedProp('pumpkinTrap', SCENE_LIGHT.party);
+      turkey.root.position.set(x, -1.1, 0.22);
+      bomb.root.position.set(x, -0.7, 0.24);
+      root.add(turkey.root, bomb.root);
       this.actors.push({ turkey, bomb });
     });
+    this.star = paintedProp('star', SCENE_LIGHT.party);
+    this.star.root.position.set(0.15, 2.35, 0.05);
+    root.add(this.star.root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     this.capy.setLight(SCENE_LIGHT.party);
@@ -170,25 +172,36 @@ export class ParadeScene implements Scene {
       if (this.state.status === 'win') this.finish(true);
       if (this.state.status === 'lose') this.finish(false);
     }
+    this.time += dt;
+    const walk: PropId[] = ['turkeyWalk1', 'turkeyIdle', 'turkeyWalk2', 'turkeyIdle'];
     this.actors.forEach((actor, index) => {
       const hole = this.state.holes[index];
       const up = hole?.phase === 'up';
       const rise = up ? Math.min(1, (PARADE.visible - (hole?.life ?? 0)) * 6) : 0;
-      const y = up ? -0.02 + rise * 0.1 : -0.85;
       const showTurkey = up && hole?.kind === 'turkey';
-      actor.turkey.visible = showTurkey;
-      actor.bomb.visible = up && hole?.kind === 'bomb';
-      actor.turkey.position.y = y;
-      actor.bomb.position.y = y;
-      const squash = up ? 1 : 0.2;
-      actor.turkey.scale.set(1 / squash, squash, 1);
+      actor.turkey.root.visible = showTurkey;
+      actor.bomb.root.visible = up && hole?.kind === 'bomb';
+      actor.turkey.root.position.y = up ? -1.05 * (1 - rise) : -1.15;
+      actor.bomb.root.position.y = up ? -0.5 * (1 - rise) : -0.7;
+      const popping = up && rise < 0.98;
+      const frame = popping ? walk[Math.floor(this.time * 8 + index) % walk.length] ?? 'turkeyIdle' : 'turkeyIdle';
+      actor.turkey.setFrame(frame);
+      const pop = popping ? Math.sin(rise * Math.PI) : 0;
+      actor.turkey.squash(1 + pop * 0.05, 1 - pop * 0.08);
+      actor.bomb.squash(1 + pop * 0.04, 1 - pop * 0.06);
     });
+    if (this.star) {
+      const won = this.state.status === 'win';
+      this.star.root.position.y = (won ? 1.7 : 2.35) + Math.sin(this.time * 2.2) * 0.07;
+      this.star.sparkle(this.time, won ? 1.2 : 0.7);
+      this.star.squash(won ? 1.08 : 1, won ? 1.08 : 1);
+    }
     this.capyX += (this.whackX - this.capyX) * Math.min(1, dt * 6);
     this.capy.root.position.set(Math.min(-2.2, this.capyX), 0, 0.6);
     this.capy.turn(1);
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(this.whackX - this.capyX), vy: 0, grounded: true, landed: false });
-    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, 0.15);
+    const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, -0.5);
     if (shot) this.ctx.stage.hold(shot.x, shot.y, shot.distance);
     this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     this.party += dt;

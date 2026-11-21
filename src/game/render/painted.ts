@@ -157,7 +157,9 @@ function bakedPlate(scene: ArtScene, hasGround: boolean): THREE.CanvasTexture {
   texture.magFilter = THREE.LinearFilter;
   texture.anisotropy = 1;
   texture.needsUpdate = true;
-  const names = hasGround ? ['sky', 'far', 'ground', 'mid'] : ['sky', 'far', 'mid'];
+  // Islands keep their own ground meshes. The hedge stays a separate locked
+  // layer so a long course can carry the sky without dragging that lip along.
+  const names = hasGround ? ['sky', 'far', 'ground', 'mid'] : ['sky', 'far'];
   void Promise.all(names.map((name) => loadImage(artUrl(`scenes/${scene}/${name}.webp`)))).then((images) => {
     const draw = canvas.getContext('2d');
     if (!draw) return;
@@ -242,6 +244,8 @@ interface Layer {
   factor: number;
   z: number;
   baseY: number;
+  /** Keep the painted horizon put while the plate follows the camera sideways. */
+  pinY?: boolean;
 }
 
 interface Glow {
@@ -380,6 +384,19 @@ function trimmedGeometry(span: number, height: number, rect: PxRect): THREE.Plan
   return geo;
 }
 
+/** A plate with extra margin whose UVs clamp, so the edge pixels continue the wall or floor. */
+function coverPlane(span: number, height: number, padX: number, padY: number): THREE.PlaneGeometry {
+  const geo = new THREE.PlaneGeometry(span + padX * 2, height + padY * 2);
+  const uv = geo.attributes.uv;
+  if (!uv) return geo;
+  const uPad = padX / span;
+  const vPad = padY / height;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i, uv.getX(i) * (1 + uPad * 2) - uPad, uv.getY(i) * (1 + vPad * 2) - vPad);
+  }
+  return geo;
+}
+
 function trimOffset(span: number, height: number, rect: PxRect): { x: number; y: number } {
   const cx = (rect.x0 + rect.x1) / 2 / ART_W;
   const cy = (rect.y0 + rect.y1) / 2 / ART_H;
@@ -419,19 +436,33 @@ export class PaintedBackdrop {
     this.apronDrop = opts.apron ? Math.max(0, opts.apron - 1.05) : 0;
     const tint = TINT[scene];
 
-    const add = (y: number, kind: 'locked' | 'drift', factor: number, z: number) => {
+    const add = (y: number, kind: 'locked' | 'drift', factor: number, z: number, pinY = false) => {
       const pivot = new THREE.Group();
       pivot.position.set(this.centerX, y, z);
       this.group.add(pivot);
-      this.layers.push({ pivot, kind, factor, z, baseY: y });
+      this.layers.push({ pivot, kind, factor, z, baseY: y, pinY });
       return pivot;
     };
 
     const ground = showGround ? add(centerY, 'locked', 1, STAGE_Z) : null;
     const mid = add(midY, lockMid ? 'locked' : 'drift', lockMid ? 1 : 0.58, lockMid ? STAGE_Z : -6.5);
-    const plateAnchor = ground ?? add(centerY, 'locked', 1, STAGE_Z);
+    // A long course walks off a world-locked sky. Follow in x, keep the horizon.
+    const plateAnchor = ground ?? add(centerY, 'drift', 0.06, STAGE_Z, true);
+    if (!showGround) {
+      const hedge = add(midY, 'locked', 1, 0.02);
+      const rect = LAYER_BOUNDS[scene].mid;
+      const mesh = new THREE.Mesh(
+        trimmedGeometry(opts.span, height, rect),
+        plateMaterial(`scenes/${scene}/mid.webp`, true, { mipmap: true }),
+      );
+      const off = trimOffset(opts.span, height, rect);
+      mesh.position.set(off.x, off.y, 0);
+      mesh.renderOrder = -18;
+      hedge.add(mesh);
+    }
+    const plateGeo = scene === 'garde-manger' ? coverPlane(opts.span, height, 4, 2.4) : new THREE.PlaneGeometry(opts.span, height);
     const plate = new THREE.Mesh(
-      new THREE.PlaneGeometry(opts.span, height),
+      plateGeo,
       texturedQuad(bakedPlate(scene, showGround), false, scene !== 'garde-manger'),
     );
     plate.position.set(0, 0, 0);
@@ -510,6 +541,7 @@ export class PaintedBackdrop {
 
   /** Camera x, focus y and distance that keep this plate covering the view. */
   place(aspect: number, focusX: number, focusY?: number): { x: number; y: number; distance: number } {
+    if (this.scene === 'garde-manger' && focusY == null) return this.roomFrame(aspect, focusX);
     const spec = FRAME[this.scene];
     const y = focusY ?? spec.focusY;
     const lookY = y + 0.78;
@@ -525,6 +557,30 @@ export class PaintedBackdrop {
       maxDistance: this.scene === 'iles-aux-glands' ? 15.5 : 19.5,
     });
     return { x: fit.x, y, distance: fit.distance };
+  }
+
+  /**
+   * The pantry painting is a whole room: window, shelves, table, and the floor
+   * the puzzle sits on. Frame that height, and keep the crates-to-feather run
+   * inside the view on a tablet and a phone.
+   */
+  private roomFrame(aspect: number, focusX: number): { x: number; y: number; distance: number } {
+    const cover = imageCover(this.span, this.groundY, GRASS_FRAC[this.scene], this.centerX);
+    const halfFov = Math.tan((14 * Math.PI) / 180);
+    const safeAspect = Math.max(0.9, aspect);
+    let distance = ((cover.top - cover.bottom) * 0.49) / halfFov;
+    const maxHalfW = this.span / 2 + 3.6;
+    const halfW = () => halfFov * distance * safeAspect;
+    if (halfW() > maxHalfW) distance *= maxHalfW / halfW();
+    const viewHalf = halfW();
+    const contentLeft = -9.3;
+    const contentRight = 8.3;
+    const lo = contentRight - viewHalf;
+    const hi = contentLeft + viewHalf;
+    let x = -1.15 + (focusX + 1.15) * 0.08;
+    x = lo <= hi ? Math.min(hi, Math.max(lo, x)) : (contentLeft + contentRight) / 2;
+    const lookY = (cover.top + cover.bottom) / 2;
+    return { x, y: lookY - 0.78, distance };
   }
 
   sync(camera: THREE.PerspectiveCamera, dt = 0.016, still = false): void {
@@ -552,7 +608,8 @@ export class PaintedBackdrop {
       layer.pivot.scale.set(need, need, 1);
       const follow = 1 - layer.factor;
       layer.pivot.position.x = this.centerX + (camX - this.centerX) * follow;
-      layer.pivot.position.y = layer.baseY + (lookY - layer.baseY) * Math.min(0.72, follow);
+      const yFollow = layer.pinY ? 0 : Math.min(0.72, follow);
+      layer.pivot.position.y = layer.baseY + (lookY - layer.baseY) * yFollow;
     }
     const fgDist = Math.max(0.4, camera.position.z - 1.15);
     const fgH = 2 * Math.tan(halfFov) * fgDist;

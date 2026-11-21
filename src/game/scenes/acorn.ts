@@ -4,7 +4,7 @@ import type { SimEvent } from '../logic/types';
 import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { Particles } from '../render/particles';
 import { groundIsland, PaintedBackdrop } from '../render/painted';
-import { acornModel, pumpkinModel } from '../render/scenery';
+import { paintedProp, type PropSprite } from '../render/props';
 import { HELP, PLACES, TEXT, VICTORY } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { GameContext, Scene } from '../context';
@@ -15,9 +15,9 @@ export class AcornScene implements Scene {
   private stop = new AbortController();
   private sim = new AcornSim();
   private capy = new Capybara();
-  private acorns = new Map<string, THREE.Object3D>();
-  private pumpkin: THREE.Object3D | null = null;
-  private portal: THREE.Object3D | null = null;
+  private acorns = new Map<string, PropSprite>();
+  private pumpkin: PropSprite | null = null;
+  private portal: PropSprite | null = null;
   private glow: THREE.PointLight | null = null;
   private islands = new Map<string, THREE.Object3D>();
   private hold = 0;
@@ -31,7 +31,12 @@ export class AcornScene implements Scene {
   mount(): void {
     this.stop = new AbortController();
     this.sim = new AcornSim();
-    if (this.ctx.flags.shot === 'glands') ['a1', 'a2', 'a3'].forEach((id) => this.sim.collected.add(id));
+    if (this.ctx.flags.shot === 'glands') {
+      ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach((id) => this.sim.collected.add(id));
+      // Stand on the island before the portal so a7, a8 and the gate share the frame.
+      this.sim.player.x = 31.43;
+      this.sim.player.y = 1.65;
+    }
     const { stage, audio, save } = this.ctx;
     stage.clear();
     stage.mood('day');
@@ -50,24 +55,20 @@ export class AcornScene implements Scene {
       this.islands.set(plat.id, land);
     });
     for (const acorn of this.sim.level.acorns) {
-      const model = acornModel();
-      model.position.set(acorn.x, acorn.y, 0.2);
-      root.add(model);
+      const model = paintedProp('acorn', SCENE_LIGHT.day);
+      model.root.position.set(acorn.x, acorn.y - model.height / 2, 0.2);
+      root.add(model.root);
       this.acorns.set(acorn.id, model);
     }
-    this.pumpkin = pumpkinModel();
-    root.add(this.pumpkin);
+    this.pumpkin = paintedProp('pumpkin', SCENE_LIGHT.day);
+    root.add(this.pumpkin.root);
     const exitTop = this.sim.level.platforms.at(-1)?.top ?? 0;
-    this.portal = new THREE.Mesh(
-      new THREE.RingGeometry(0.32, 0.52, 28),
-      new THREE.MeshBasicMaterial({ color: '#ffe7a0', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
-    );
-    this.portal.position.set(this.sim.level.exit.x, exitTop + 1.15, 0.3);
-    this.portal.renderOrder = 4;
+    this.portal = paintedProp('portalIdle', SCENE_LIGHT.day);
+    this.portal.root.position.set(this.sim.level.exit.x, exitTop, 0.18);
     this.glow = new THREE.PointLight('#ffd56a', 0, 5, 2);
-    this.glow.position.set(0, 0.2, 0.2);
-    this.portal.add(this.glow);
-    root.add(this.portal);
+    this.glow.position.set(0, 0.9, 0.2);
+    this.portal.root.add(this.glow);
+    root.add(this.portal.root);
     this.capy.stage = save.data.stage;
     this.capy.featherGrow = save.data.stage;
     this.capy.setLight(SCENE_LIGHT.day);
@@ -194,24 +195,31 @@ export class AcornScene implements Scene {
     this.capy.calm = this.ctx.reduced();
     this.capy.update(dt, { speed: Math.abs(player.vx), vy: player.vy, grounded: player.grounded, landed: false });
     for (const [id, model] of this.acorns) {
-      model.visible = !this.sim.collected.has(id);
-      model.rotation.y += dt * 2;
-      model.position.y = (this.sim.level.acorns.find((a) => a.id === id)?.y ?? 1) + Math.sin(this.sim.time * 3 + model.position.x) * 0.06;
+      const spec = this.sim.level.acorns.find((a) => a.id === id);
+      model.root.visible = !this.sim.collected.has(id);
+      const bob = Math.sin(this.sim.time * 3 + model.root.position.x) * 0.06;
+      model.root.position.y = (spec?.y ?? 1) - model.height / 2 + bob;
+      model.sparkle(this.sim.time + model.root.position.x, model.root.visible ? 1 : 0);
     }
     const hazard = this.sim.hazards[0];
     if (this.pumpkin && hazard) {
-      this.pumpkin.position.set(hazard.x, hazard.y, 0.3);
-      this.pumpkin.rotation.z = Math.sin(this.sim.time * 4) * 0.2;
+      this.pumpkin.root.position.set(hazard.x, hazard.y - hazard.h / 2, 0.3);
+      this.pumpkin.root.rotation.z = Math.sin(this.sim.time * 3) * 0.08;
     }
     if (this.glow && this.portal) {
       const open = this.sim.collected.size >= 8;
-      this.glow.intensity = open ? 1.4 : 0;
-      (this.portal as THREE.Mesh).scale.setScalar(open ? 1.35 + Math.sin(this.sim.time * 4) * 0.06 : 1);
-      ((this.portal as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = open ? 0.95 : 0.35;
+      this.portal.setFrame(open ? 'portalOpen' : 'portalIdle');
+      this.glow.intensity = open ? 1.1 : 0.15;
+      const pulse = open ? 1 + Math.sin(this.sim.time * 3.2) * 0.025 : 1;
+      this.portal.squash(pulse, pulse);
     }
     this.sparks?.update(dt, player.x);
     const shot = this.backdrop?.place(this.ctx.stage.camera.aspect, player.x + player.facing * 0.22, Math.max(0.62, player.y * 0.55));
-    if (shot) this.ctx.stage.follow(shot.x, shot.y, shot.distance, 0);
+    if (shot) {
+      // The showcase stands near the portal. Pull back so the last two acorns and the gate fit.
+      const distance = this.ctx.flags.shot === 'glands' ? Math.max(shot.distance, 18) : shot.distance;
+      this.ctx.stage.follow(shot.x, shot.y, distance, 0);
+    }
     this.backdrop?.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     for (const plat of this.sim.level.platforms) {
       if (!plat.mover) continue;

@@ -93,12 +93,12 @@ export class IntroScene implements Scene {
     this.ctx.stage.hold(shot.x, shot.y, shot.distance);
     grove.backdrop.sync(this.ctx.stage.camera, dt, this.ctx.reduced());
     if (this.beat === 1) {
-      const y = 3.2 - Math.min(1, this.beatTime / 1.1) * 2;
-      grove.feather.position.y = Math.max(1.15, y);
-      grove.feather.rotation.z += dt * 2;
+      const fall = Math.min(1, this.beatTime / 1.1);
+      grove.feather.position.y = Math.max(0.95, 2.7 - fall * 1.75);
+      grove.feather.rotation.z = Math.sin(this.time * 3) * 0.22 * (1 - fall);
     } else if (this.beat > 1) {
-      grove.feather.position.y = 1.15 + Math.sin(this.time * 2) * 0.06;
-      grove.feather.rotation.z += dt;
+      grove.feather.position.y = 0.95 + Math.sin(this.time * 2) * 0.05;
+      grove.feather.rotation.z = Math.sin(this.time * 1.5) * 0.1;
     }
     if (this.ctx.flags.demo && this.beatTime > 0.85) this.advance();
   }

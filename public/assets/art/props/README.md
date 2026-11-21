@@ -5,7 +5,7 @@ Files are lossy WebP at quality 90, with alpha preserved. Creatures face right.
 Suggested heights are in world units (Capy's idle sprite is 1.68 tall; the gameplay hitbox is 1.0).
 "Capy heights" is suggested world height ÷ 1.68.
 
-These assets are not wired into the game yet.
+`src/game/render/props.ts` draws these as alpha-tested sprite planes, with a contact shadow and the scene rim tint. Hitboxes stay in the logic files.
 
 ## Mapping
 

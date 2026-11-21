@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Capybara, SCENE_LIGHT, createLegend } from './capybara';
-import { featherModel } from './scenery';
+import { paintedProp } from './props';
 import { PaintedBackdrop } from './painted';
 
 export interface Grove {
@@ -22,10 +22,11 @@ export function createGrove(stage: 0 | 1): Grove {
   capy.setLight(stage === 1 ? SCENE_LIGHT.evolve : SCENE_LIGHT.day);
   capy.root.position.set(1.7, 0, 0.5);
   group.add(capy.root);
-  const feather = featherModel();
-  feather.position.set(0.2, 3.3, 0.35);
+  const featherSprite = paintedProp('feather', stage === 1 ? SCENE_LIGHT.evolve : SCENE_LIGHT.day);
+  const feather = featherSprite.root;
+  feather.position.set(0.2, 2.6, 0.35);
   feather.visible = false;
-  feather.scale.setScalar(1.6);
+  feather.scale.setScalar(1.35);
   group.add(feather);
   const vision = new THREE.Group();
   vision.visible = false;
