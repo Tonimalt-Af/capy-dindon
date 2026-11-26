@@ -1,5 +1,5 @@
-import { completeChallenge, defaultSave, loadSave, writeSave, type Kv } from './logic/save';
-import type { ChallengeId, SaveData, Settings } from './logic/types';
+import { completeChallenge, defaultSave, loadSave, recordLevel, writeSave, type Kv, type LevelProgress } from './logic/save';
+import type { ChallengeId, LevelId, SaveData, Settings } from './logic/types';
 
 export class SaveStore {
   data: SaveData;
@@ -23,6 +23,11 @@ export class SaveStore {
 
   grant(id: ChallengeId, score = 0): void {
     this.data = completeChallenge(this.data, id, score);
+    this.persist();
+  }
+
+  noteLevel(id: LevelId, progress: LevelProgress): void {
+    this.data = recordLevel(this.data, id, progress);
     this.persist();
   }
 

@@ -99,7 +99,7 @@ export class Platformer {
     public h = 1,
   ) {}
 
-  step(input: MoveInput, solids: readonly Solid[], dt: number): { jumped: boolean; landed: boolean } {
+  step(input: MoveInput, solids: readonly Solid[], dt: number, glide = false): { jumped: boolean; landed: boolean } {
     if (input.left === input.right) this.vx = approach(this.vx, 0, PHYS.friction * dt);
     else if (input.left) {
       this.vx = approach(this.vx, -PHYS.speed, PHYS.accel * dt);
@@ -126,6 +126,12 @@ export class Platformer {
     } else if (!input.jumpHeld && this.vy > 0 && !this.jumpCut) {
       this.vy *= 0.48;
       this.jumpCut = true;
+    }
+
+    // Held jump after a glide is earned. Cap just above the gravity step so the move itself stays near -3.
+    if (glide && input.jumpHeld && !this.grounded && !jumped && this.vy < 1) {
+      if (this.vy < -2.45) this.vy = -2.45;
+      this.vx = approach(this.vx, this.facing * (PHYS.speed + 1.1), 24 * dt);
     }
 
     const hit = moveAndCollide(this, solids, dt);

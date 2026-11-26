@@ -1,6 +1,24 @@
 export const CHALLENGES = ['glands', 'pantry', 'parade'] as const;
 export type ChallengeId = (typeof CHALLENGES)[number];
 
+export const LEVEL_IDS = ['glands', 'pantry', 'ruee'] as const;
+export type LevelId = (typeof LEVEL_IDS)[number];
+export type Cup = 'none' | 'bronze' | 'silver' | 'gold';
+
+export interface LevelRecord {
+  acorns: string[];
+  babies: string[];
+  cup: Cup;
+  bestTime: number;
+  done: boolean;
+}
+
+export interface WorldRecord {
+  glands: LevelRecord;
+  pantry: LevelRecord;
+  ruee: LevelRecord;
+}
+
 export type QualityChoice = 'auto' | 'low' | 'medium' | 'high';
 export type TextSpeed = 'slow' | 'normal' | 'fast';
 
@@ -15,12 +33,13 @@ export interface Settings {
 }
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   introSeen: boolean;
   stage: 0 | 1;
   challenges: Record<ChallengeId, boolean>;
   paradeBest: number;
   settings: Settings;
+  worlds: { archipel: WorldRecord };
 }
 
 export interface Rect {
