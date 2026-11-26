@@ -560,27 +560,22 @@ export class PaintedBackdrop {
   }
 
   /**
-   * The pantry painting is a whole room: window, shelves, table, and the floor
-   * the puzzle sits on. Frame that height, and keep the crates-to-feather run
-   * inside the view on a tablet and a phone.
+   * The pantry plate is a tall room. Framing all of it shrinks Capy (idle
+   * sprite 1.68) and the puzzle into a strip on the floor. Keep the floor in
+   * the lower third and follow the run from the crates to the feather.
    */
   private roomFrame(aspect: number, focusX: number): { x: number; y: number; distance: number } {
-    const cover = imageCover(this.span, this.groundY, GRASS_FRAC[this.scene], this.centerX);
     const halfFov = Math.tan((14 * Math.PI) / 180);
     const safeAspect = Math.max(0.9, aspect);
-    let distance = ((cover.top - cover.bottom) * 0.49) / halfFov;
-    const maxHalfW = this.span / 2 + 3.6;
-    const halfW = () => halfFov * distance * safeAspect;
-    if (halfW() > maxHalfW) distance *= maxHalfW / halfW();
-    const viewHalf = halfW();
-    const contentLeft = -9.3;
-    const contentRight = 8.3;
+    const distance = 17.6;
+    const viewHalf = halfFov * distance * safeAspect;
+    const contentLeft = -7.4;
+    const contentRight = 8.2;
     const lo = contentRight - viewHalf;
     const hi = contentLeft + viewHalf;
-    let x = -1.15 + (focusX + 1.15) * 0.08;
+    let x = focusX + 0.35;
     x = lo <= hi ? Math.min(hi, Math.max(lo, x)) : (contentLeft + contentRight) / 2;
-    const lookY = (cover.top + cover.bottom) / 2;
-    return { x, y: lookY - 0.78, distance };
+    return { x, y: 1.15, distance };
   }
 
   sync(camera: THREE.PerspectiveCamera, dt = 0.016, still = false): void {
