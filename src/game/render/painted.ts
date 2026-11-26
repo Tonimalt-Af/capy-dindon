@@ -5,6 +5,7 @@ import {
   ART_W,
   FRAME,
   GRASS_FRAC,
+  islandGrass,
   LAYER_BOUNDS,
   MID_DY,
   type PxRect,
@@ -161,7 +162,7 @@ function bakedPlate(scene: ArtScene, hasGround: boolean): THREE.CanvasTexture {
   texture.needsUpdate = true;
   // Islands keep their own ground meshes. The hedge stays a separate locked
   // layer so a long course can carry the sky without dragging that lip along.
-  const names = hasGround ? ['sky', 'far', 'ground', 'mid'] : ['sky', 'far'];
+  const names = hasGround ? ['sky', 'far', 'ground', 'mid'] : scene === 'la-ruee' ? ['sky', 'far', 'mid'] : ['sky', 'far'];
   const dir = sceneDir(scene);
   void Promise.all(names.map((name) => loadImage(artUrl(`${dir}/${name}.webp`)))).then((images) => {
     const draw = canvas.getContext('2d');
@@ -452,7 +453,7 @@ export class PaintedBackdrop {
     const mid = add(midY, lockMid ? 'locked' : 'drift', lockMid ? 1 : 0.58, lockMid ? STAGE_Z : -6.5);
     // A long course walks off a world-locked sky. Follow in x, keep the horizon.
     const plateAnchor = ground ?? add(centerY, 'drift', 0.06, STAGE_Z, true);
-    if (!showGround) {
+    if (!showGround && scene !== 'la-ruee') {
       const hedge = add(midY, 'locked', 1, 0.02);
       const rect = LAYER_BOUNDS[scene].mid;
       const mesh = new THREE.Mesh(
@@ -573,12 +574,12 @@ export class PaintedBackdrop {
     const safeAspect = Math.max(0.9, aspect);
     const distance = 17.6;
     const viewHalf = halfFov * distance * safeAspect;
-    const contentLeft = -7.4;
+    const contentLeft = -8.5;
     const contentRight = 8.2;
-    const lo = contentRight - viewHalf;
-    const hi = contentLeft + viewHalf;
+    const minX = contentLeft + viewHalf;
+    const maxX = contentRight - viewHalf;
     let x = focusX + 0.35;
-    x = lo <= hi ? Math.min(hi, Math.max(lo, x)) : (contentLeft + contentRight) / 2;
+    x = minX <= maxX ? Math.min(maxX, Math.max(minX, x)) : (contentLeft + contentRight) / 2;
     return { x, y: 1.15, distance };
   }
 
@@ -664,7 +665,7 @@ export function groundIsland(scene: ArtScene, walkWidth: number, lift = 0): THRE
   const walk = WALK_FRAC[scene];
   const mid = (walk.left + walk.right) / 2;
   const pivot = new THREE.Group();
-  pivot.position.set(-(mid - 0.5) * span, lift - height * (0.5 - GRASS_FRAC[scene]), 0);
+  pivot.position.set(-(mid - 0.5) * span, lift - height * (0.5 - islandGrass(scene)), 0);
   pivot.add(mesh);
   group.add(pivot);
   return group;

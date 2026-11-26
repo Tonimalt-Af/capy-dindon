@@ -197,7 +197,7 @@ export class LevelScene implements Scene {
         player.y = pump.top + 0.55;
       }
     } else if (this.id === 'pantry') {
-      player.x = -0.2;
+      player.x = -2.4;
       player.y = 0.62;
     } else {
       const isle = level.platforms.find((plat) => plat.id === 'r1');
@@ -362,7 +362,6 @@ export class LevelScene implements Scene {
         const bob = Math.sin(this.sim.time * 3 + at.x) * 0.06;
         model.root.position.set(at.x, at.y - model.height / 2 + bob, 0.2);
       }
-      model.sparkle(this.sim.time + model.root.position.x, model.root.visible ? 1 : 0);
     }
     for (const [id, model] of this.babies) {
       model.root.visible = !this.sim.babies.has(id);

@@ -28,7 +28,7 @@ export const GRASS_FRAC: Record<ArtScene, number> = {
   'garde-manger': 0.97,
   parade: 0.5,
   eveil: 0.45,
-  'la-ruee': 0.239,
+  'la-ruee': 0.51,
 };
 
 /** Opaque walk surface, as fractions of the image width. */
@@ -43,6 +43,14 @@ export const WALK_FRAC: Record<ArtScene, { left: number; right: number }> = {
 
 export function planeHeight(span: number): number {
   return span * (ART_H / ART_W);
+}
+
+/**
+ * Grass row used by a repeated island stamp. The chase plate's lawn sits
+ * higher in the source than the sky horizon, so the stamp must not reuse it.
+ */
+export function islandGrass(scene: ArtScene): number {
+  return scene === 'la-ruee' ? 0.239 : GRASS_FRAC[scene];
 }
 
 /** World y of a texture row. `fracFromTop` is 0 at the top of the image. */

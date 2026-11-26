@@ -26,6 +26,7 @@ interface CapyApi {
   completeCurrentChallenge: () => void;
   showcase: (shot: string) => void;
   startDemo: () => void;
+  playCourse: (id: 'glands' | 'pantry' | 'ruee') => void;
 }
 
 declare global {

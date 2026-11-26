@@ -192,7 +192,7 @@ export const GARDE_MANGER: LevelDef = {
   winds: [],
   checkpoints: [
     { id: 'door', x: PANTRY.spawn.x, y: 0 },
-    { id: 'gate', x: 4.15, y: 0 },
+    { id: 'gate', x: 2.55, y: 0 },
   ],
   hatch: { x: -7.55, y: 0.85, w: 0.36, h: 1.7, zoneX: -6.85, zoneY: 0.7, zoneR: 1.15 },
   lumi: { x: -6.85, y: 1.45 },

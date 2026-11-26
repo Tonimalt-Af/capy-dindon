@@ -285,6 +285,12 @@ export class Game {
         const id = (['title', 'intro', 'hub', 'glands', 'pantry', 'ruee', 'parade', 'evolve'].includes(shot) ? shot : 'title') as SceneId;
         void this.goto(id);
       },
+      playCourse: (id: 'glands' | 'pantry' | 'ruee') => {
+        this.flags.demo = true;
+        this.flags.shot = null;
+        this.paused = false;
+        void this.goto(id);
+      },
       startDemo: () => {
         this.flags.demo = true;
         this.flags.shot = null;
