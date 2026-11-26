@@ -1,7 +1,12 @@
 export const ART_W = 1280;
 export const ART_H = 720;
 
-export type ArtScene = 'camp-des-nuages' | 'iles-aux-glands' | 'garde-manger' | 'parade' | 'eveil';
+export type ArtScene = 'camp-des-nuages' | 'iles-aux-glands' | 'garde-manger' | 'parade' | 'eveil' | 'la-ruee';
+
+/** Painted files for a scene. The chase plate lives with the phase-1 set. */
+export function sceneDir(scene: ArtScene): string {
+  return scene === 'la-ruee' ? 'phase1/scenes/chase' : `scenes/${scene}`;
+}
 
 /** Positive dy moves the mid layer down, in source pixels. */
 export const MID_DY: Record<ArtScene, number> = {
@@ -10,6 +15,7 @@ export const MID_DY: Record<ArtScene, number> = {
   'garde-manger': 0,
   parade: -170,
   eveil: -200,
+  'la-ruee': -40,
 };
 
 /**
@@ -22,6 +28,7 @@ export const GRASS_FRAC: Record<ArtScene, number> = {
   'garde-manger': 0.97,
   parade: 0.5,
   eveil: 0.45,
+  'la-ruee': 0.239,
 };
 
 /** Opaque walk surface, as fractions of the image width. */
@@ -31,6 +38,7 @@ export const WALK_FRAC: Record<ArtScene, { left: number; right: number }> = {
   'garde-manger': { left: 0, right: 1 },
   parade: { left: 0.067, right: 0.933 },
   eveil: { left: 0.06, right: 0.923 },
+  'la-ruee': { left: 0.031, right: 0.359 },
 };
 
 export function planeHeight(span: number): number {
@@ -98,6 +106,11 @@ export const LAYER_BOUNDS: Record<ArtScene, Record<'far' | 'ground' | 'mid', PxR
     ground: { x0: 8, y0: 230, x1: 1276, y1: 554 },
     mid: { x0: 17, y0: 216, x1: 1268, y1: 614 },
   },
+  'la-ruee': {
+    far: { x0: 19, y0: 116, x1: 1256, y1: 474 },
+    ground: { x0: 40, y0: 165, x1: 460, y1: 400 },
+    mid: { x0: 17, y0: 35, x1: 1248, y1: 656 },
+  },
 };
 
 /** World width the composition wants on screen, before the painted frame clamps it. */
@@ -107,6 +120,7 @@ export const FRAME: Record<ArtScene, { want: number; focusY: number; bias: numbe
   'garde-manger': { want: 12.4, focusY: 1.45, bias: 0 },
   parade: { want: 13.4, focusY: 0.32, bias: 0 },
   eveil: { want: 13.6, focusY: 0.32, bias: -0.35 },
+  'la-ruee': { want: 13.4, focusY: 0.7, bias: 0.4 },
 };
 
 export interface FrameCover {

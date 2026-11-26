@@ -22,6 +22,7 @@ describe('painted layout', () => {
       'garde-manger': 0,
       parade: -170,
       eveil: -200,
+      'la-ruee': -40,
     });
   });
 

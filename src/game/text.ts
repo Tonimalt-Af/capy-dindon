@@ -47,6 +47,8 @@ export const TEXT = {
   actionNeed: 'Il manque des reliques',
   oups: 'Oups !',
   glandsGot: 'Gland doré',
+  babyGot: 'Un petit Capy',
+  glideOn: 'La plume te porte. Garde le saut en l’air.',
   featherGot: 'Plume sacrée',
   starGot: 'Étoile farceuse',
   bravo: 'Bravo !',
@@ -62,17 +64,21 @@ export const PLACES = {
   camp: 'Camp des Nuages',
   glands: 'La Cueillette des glands',
   pantry: 'Le Garde-manger enchanté',
+  ruee: 'La Ruée des Citrouilles',
   parade: 'La Parade des dindons',
   evolve: 'Éveil',
 } as const;
 
 export const HELP = {
-  glands: 'Ramasse les 8 glands dorés, puis entre dans le portail.',
+  glands: 'Ramasse les glands, trouve les petits Capy, puis entre dans le portail.',
   glandsMore:
-    "Capy court sur les îles flottantes. Saute au bord du vide : un appui bref fait un petit bond, un appui long va plus haut. La citrouille ronchonne peut te bousculer, sans te voler tes glands. Si tu tombes, tu reviens au dernier promontoire.",
-  pantry: 'Pose une caisse sur chaque dalle. La grille se lève, la plume t’attend.',
+    "Sur l'Archipel des Nuages, un appui bref fait un petit bond et un appui long va plus haut. Les glands se laissent approcher. Une citrouille peut te bousculer, jamais te faire tomber pour de bon : tu reviens à la dernière lanterne. Un champignon t'envoie vers les hauteurs. Un petit Capy se cache à gauche du départ.",
+  pantry: 'Pose une caisse sur chaque dalle. Lumi ouvre la trappe avec Action.',
   pantryMore:
-    'Pousse les caisses par la gauche. Une caisse qui touche une dalle s’y accroche. Si tout est coincé, remets les caisses en place. Ensuite, passe la grille et prends la plume sacrée.',
+    "Pousse les caisses par la gauche. Une caisse qui touche une dalle s'y accroche. L'étagère garde un petit Capy et quelques glands. Près de Lumi, Action ouvre la trappe. Ensuite la grille se lève, et la plume sacrée t'attend.",
+  ruee: 'La horde roule vers la droite. Après la plume, garde le saut en l’air pour planer.',
+  rueeMore:
+    "Les citrouilles traversent les îles. Elles bousculent, elles n'arrêtent pas la course. Les lanternes sont rapprochées. La plume temporaire ralentit la chute tant que le saut reste enfoncé. Aucun bond ne demande d'être au pixel près.",
   parade: 'Touche les dindons. Évite les citrouilles piégées. Objectif : 8.',
   paradeMore:
     'Les dindons surgissent des terriers. Touche-les, ou choisis un terrier avec les flèches puis valide. Une citrouille enlève un point. Huit dindons avant la fin du sablier, et l’étoile farceuse est à toi.',
@@ -97,6 +103,14 @@ export const VICTORY = {
   glands: 'Le gland doré rejoint le totem. Capy a les joues toutes rondes.',
   pantry: 'La plume sacrée se love contre le totem. L’air sent le pain chaud.',
   parade: 'L’étoile farceuse éclate de rire et file se poser sur le totem.',
+  ruee: 'La horde est passée. Les petits Capy sortent de derrière les îles.',
+} as const;
+
+export const CUPS = {
+  none: '',
+  bronze: 'Coupe de bronze',
+  silver: 'Coupe d’argent',
+  gold: 'Coupe d’or',
 } as const;
 
 export const LOSE = {

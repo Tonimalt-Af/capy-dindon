@@ -5,7 +5,7 @@ import type { Input } from './input';
 import type { Stage } from './render/stage';
 import type { Ui } from './ui';
 
-export type SceneId = 'title' | 'intro' | 'hub' | 'glands' | 'pantry' | 'parade' | 'evolve';
+export type SceneId = 'title' | 'intro' | 'hub' | 'glands' | 'pantry' | 'ruee' | 'parade' | 'evolve';
 
 export interface Scene {
   readonly id: SceneId;

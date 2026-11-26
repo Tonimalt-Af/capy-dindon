@@ -26,7 +26,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}', 'assets/art/characters/*.webp'],
-        globIgnores: ['**/assets/art/scenes/**', '**/assets/art/props/**'],
+        globIgnores: ['**/assets/art/scenes/**', '**/assets/art/props/**', '**/assets/art/phase1/**'],
         navigateFallback: '/capy-dindon/index.html',
         navigateFallbackDenylist: [/^\/capy-dindon\/assets\//],
         runtimeCaching: [
@@ -36,6 +36,15 @@ export default defineConfig({
             options: {
               cacheName: 'capy-scenes',
               expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/assets\/art\/phase1\/.+\.webp$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'capy-phase1',
+              expiration: { maxEntries: 48, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

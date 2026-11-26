@@ -125,7 +125,7 @@ export class Game {
     this.scene = await this.create(id);
     if (token !== this.token) return;
     this.scene.mount();
-    const playing = id === 'hub' || id === 'glands' || id === 'pantry' || id === 'parade';
+    const playing = id === 'hub' || id === 'glands' || id === 'pantry' || id === 'ruee' || id === 'parade';
     document.documentElement.dataset.playing = playing ? 'yes' : 'no';
     this.ui.fade(false);
     if (window.__CAPY__) window.__CAPY__.ready = true;
@@ -135,8 +135,9 @@ export class Game {
     if (id === 'title') return new (await import('./scenes/title')).TitleScene(this.ctx);
     if (id === 'intro') return new (await import('./scenes/intro')).IntroScene(this.ctx);
     if (id === 'hub') return new (await import('./scenes/hub')).HubScene(this.ctx);
-    if (id === 'glands') return new (await import('./scenes/acorn')).AcornScene(this.ctx);
-    if (id === 'pantry') return new (await import('./scenes/pantry')).PantryScene(this.ctx);
+    if (id === 'glands' || id === 'pantry' || id === 'ruee') {
+      return new (await import('./scenes/level')).LevelScene(this.ctx, id);
+    }
     if (id === 'parade') return new (await import('./scenes/parade')).ParadeScene(this.ctx);
     return new (await import('./scenes/evolve')).EvolveScene(this.ctx);
   }
@@ -265,7 +266,7 @@ export class Game {
         void this.goto('hub');
       },
       goToHub: () => void this.goto('hub'),
-      startChallenge: (id: ChallengeId) => void this.goto(id),
+      startChallenge: (id: ChallengeId | 'ruee') => void this.goto(id),
       completeCurrentChallenge: () => {
         const scene = this.scene;
         if (!scene?.challengeId || !scene.showVictory) return;
@@ -281,7 +282,7 @@ export class Game {
           this.save.grant('pantry');
           this.save.grant('parade', 8);
         }
-        const id = (['title', 'intro', 'hub', 'glands', 'pantry', 'parade', 'evolve'].includes(shot) ? shot : 'title') as SceneId;
+        const id = (['title', 'intro', 'hub', 'glands', 'pantry', 'ruee', 'parade', 'evolve'].includes(shot) ? shot : 'title') as SceneId;
         void this.goto(id);
       },
       startDemo: () => {

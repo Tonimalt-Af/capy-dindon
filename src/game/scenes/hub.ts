@@ -3,14 +3,16 @@ import { Platformer } from '../logic/physics';
 import type { Solid } from '../logic/types';
 import { Capybara, SCENE_LIGHT } from '../render/capybara';
 import { PaintedBackdrop } from '../render/painted';
+import { paintedProp } from '../render/props';
 import { PLACES, TEXT } from '../text';
 import { hudChrome, wireHud } from '../ui';
 import type { ChallengeId } from '../logic/types';
 import type { GameContext, Scene } from '../context';
 
-const GATES: { id: ChallengeId | 'totem'; x: number }[] = [
+const GATES: { id: ChallengeId | 'totem' | 'ruee'; x: number }[] = [
   { id: 'glands', x: -6.8 },
   { id: 'totem', x: 0.15 },
+  { id: 'ruee', x: 2.55 },
   { id: 'pantry', x: 5.5 },
   { id: 'parade', x: 8.3 },
 ];
@@ -39,6 +41,10 @@ export class HubScene implements Scene {
     const root = stage.root;
     this.backdrop = new PaintedBackdrop('camp-des-nuages', { span: 24, groundY: 0.02 });
     root.add(this.backdrop.group);
+    const chase = paintedProp('portalOpen', save.data.stage === 1 ? SCENE_LIGHT.evolve : SCENE_LIGHT.day);
+    chase.root.position.set(2.55, 0.02, 0.22);
+    chase.root.scale.set(0.7, 0.7, 1);
+    root.add(chase.root);
     const land = this.backdrop.bounds;
     const h = 1.4;
     this.solids.push({ id: 'ground', x: land.center, y: -h / 2, w: land.width, h, dx: 0, dy: 0 });
@@ -134,8 +140,8 @@ export class HubScene implements Scene {
   private demoGoal(): { id: string; x: number } | null {
     const save = this.ctx.save.data;
     if (!save.challenges.glands) return GATES[0];
-    if (!save.challenges.pantry) return GATES[2];
-    if (!save.challenges.parade) return GATES[3];
+    if (!save.challenges.pantry) return GATES[3];
+    if (!save.challenges.parade) return GATES[4];
     if (canEvolve(save)) return GATES[1];
     this.ctx.flags.demo = false;
     return null;

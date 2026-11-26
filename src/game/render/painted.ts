@@ -15,6 +15,7 @@ import {
   midOffsetY,
   planeCenterY,
   planeHeight,
+  sceneDir,
   walkBounds,
 } from './artLayout';
 
@@ -125,6 +126,7 @@ const WASH: Record<ArtScene, string> = {
   'garde-manger': '#c4894e',
   parade: '#f3d7b0',
   eveil: '#f6d48a',
+  'la-ruee': '#f4c48a',
 };
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -160,7 +162,8 @@ function bakedPlate(scene: ArtScene, hasGround: boolean): THREE.CanvasTexture {
   // Islands keep their own ground meshes. The hedge stays a separate locked
   // layer so a long course can carry the sky without dragging that lip along.
   const names = hasGround ? ['sky', 'far', 'ground', 'mid'] : ['sky', 'far'];
-  void Promise.all(names.map((name) => loadImage(artUrl(`scenes/${scene}/${name}.webp`)))).then((images) => {
+  const dir = sceneDir(scene);
+  void Promise.all(names.map((name) => loadImage(artUrl(`${dir}/${name}.webp`)))).then((images) => {
     const draw = canvas.getContext('2d');
     if (!draw) return;
     images.forEach((image, index) => {
@@ -283,6 +286,7 @@ const TINT: Record<ArtScene, { grass: string; cloud: string; mote: string }> = {
   'garde-manger': { grass: '#c4894e', cloud: '#f0d2a4', mote: '#ffd7a4' },
   parade: { grass: '#6d8c38', cloud: '#fff0f4', mote: '#ffd0e4' },
   eveil: { grass: '#d2a24a', cloud: '#ffe6b0', mote: '#ffe08a' },
+  'la-ruee': { grass: '#5f862c', cloud: '#fff6e8', mote: '#fff0b8' },
 };
 
 function canvasTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
@@ -453,7 +457,7 @@ export class PaintedBackdrop {
       const rect = LAYER_BOUNDS[scene].mid;
       const mesh = new THREE.Mesh(
         trimmedGeometry(opts.span, height, rect),
-        plateMaterial(`scenes/${scene}/mid.webp`, true, { mipmap: true }),
+        plateMaterial(`${sceneDir(scene)}/mid.webp`, true, { mipmap: true }),
       );
       const off = trimOffset(opts.span, height, rect);
       mesh.position.set(off.x, off.y, 0);
@@ -652,7 +656,7 @@ export function groundIsland(scene: ArtScene, walkWidth: number, lift = 0): THRE
   const group = new THREE.Group();
   const mesh = new THREE.Mesh(
     trimmedGeometry(span, height, rect),
-    plateMaterial(`scenes/${scene}/ground.webp`, true, { mipmap: true }),
+    plateMaterial(`${sceneDir(scene)}/ground.webp`, true, { mipmap: true }),
   );
   const off = trimOffset(span, height, rect);
   mesh.position.set(off.x, off.y, 0);

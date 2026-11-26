@@ -100,7 +100,7 @@ function lamps(plats: LevelPlatform[], ids: string[]): { id: string; x: number; 
   });
 }
 
-const shelf = { x: 2.4, top: 2.42, w: 3.8 };
+const shelf = { x: 2.4, top: 2.42, w: 2.4 };
 
 export const CUEILLETTE: LevelDef = {
   id: 'glands',
@@ -163,7 +163,7 @@ for (let x = -6.5; x <= 6.5; x += 0.72) {
   if (Math.abs(x - PANTRY.gate.x) < 0.5) continue;
   pantryAcorns.push({ id: `a${pantryAcorns.length + 1}`, x: +x.toFixed(2), y: 1.12 });
 }
-for (const x of [1.15, 2.15, 3.15, 4.05]) {
+for (const x of [1.5, 2.1, 2.7, 3.25]) {
   pantryAcorns.push({ id: `a${pantryAcorns.length + 1}`, x, y: shelf.top + 0.7 });
 }
 
@@ -185,7 +185,7 @@ export const GARDE_MANGER: LevelDef = {
   babies: [
     { id: 'b-path', x: 1.8, y: 0.02, pose: 'idle' },
     { id: 'b-hatch', x: -8.25, y: 0.02, pose: 'sit' },
-    { id: 'b-shelf', x: 3.45, y: shelf.top + 0.02, pose: 'sit' },
+    { id: 'b-shelf', x: 3.15, y: shelf.top + 0.02, pose: 'sit' },
   ],
   hazards: [],
   mushrooms: [],

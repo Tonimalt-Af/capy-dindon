@@ -90,8 +90,9 @@ const SPEEDS: readonly TextSpeed[] = ['slow', 'normal', 'fast'];
 
 export function sanitizeSave(raw: unknown): SaveData | null {
   if (!raw || typeof raw !== 'object') return null;
-  const data = raw as Partial<SaveData> & { worlds?: { archipel?: Partial<WorldRecord> } };
-  if (data.version !== 1 && data.version !== 2) return null;
+  const version = (raw as { version?: unknown }).version;
+  if (version !== 1 && version !== 2) return null;
+  const data = raw as Omit<Partial<SaveData>, 'version'> & { worlds?: { archipel?: Partial<WorldRecord> } };
   const base = defaultSave();
   const challenges = data.challenges ?? base.challenges;
   const settings = (data.settings ?? {}) as Partial<Settings>;
@@ -100,7 +101,7 @@ export function sanitizeSave(raw: unknown): SaveData | null {
     pantry: Boolean(challenges.pantry),
     parade: Boolean(challenges.parade),
   };
-  const archipel = data.version === 2 ? data.worlds?.archipel : undefined;
+  const archipel = version === 2 ? data.worlds?.archipel : undefined;
   return {
     version: 2,
     introSeen: Boolean(data.introSeen),

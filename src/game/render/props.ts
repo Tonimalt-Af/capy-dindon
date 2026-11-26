@@ -23,7 +23,22 @@ export type PropId =
   | 'turkeyWalk2'
   | 'portalIdle'
   | 'portalOpen'
-  | 'star';
+  | 'star'
+  | 'babyIdle'
+  | 'babySit'
+  | 'lumi1'
+  | 'lumi2'
+  | 'mushroom'
+  | 'mushroomSquash'
+  | 'lanternOff'
+  | 'lanternOn'
+  | 'pumpkinA'
+  | 'pumpkinB'
+  | 'pumpkinC'
+  | 'featherTemp'
+  | 'hatchClosed'
+  | 'hatchOpen'
+  | 'shelf';
 
 interface FrameSpec {
   file: string;
@@ -50,6 +65,21 @@ const FRAME: Record<PropId, FrameSpec> = {
   portalIdle: { file: 'props/portal-idle.webp', w: 849, h: 1078, height: 1.6 },
   portalOpen: { file: 'props/portal-open.webp', w: 850, h: 1076, height: 1.6 },
   star: { file: 'props/star.webp', w: 730, h: 704, height: 0.45 },
+  babyIdle: { file: 'phase1/characters/baby-capy-happy.webp', w: 779, h: 919, height: 0.85 },
+  babySit: { file: 'phase1/characters/baby-capy-sleep.webp', w: 1006, h: 540, height: 0.5 },
+  lumi1: { file: 'phase1/characters/lumi-idle.webp', w: 675, h: 661, height: 0.42 },
+  lumi2: { file: 'phase1/characters/lumi-sparkle.webp', w: 768, h: 770, height: 0.49 },
+  mushroom: { file: 'phase1/props/mushroom-idle.webp', w: 818, h: 914, height: 1.1 },
+  mushroomSquash: { file: 'phase1/props/mushroom-squashed.webp', w: 891, h: 671, height: 0.8 },
+  lanternOff: { file: 'phase1/props/lantern-unlit.webp', w: 205, h: 881, height: 2 },
+  lanternOn: { file: 'phase1/props/lantern-lit.webp', w: 300, h: 920, height: 2.06 },
+  pumpkinA: { file: 'phase1/props/pumpkin-herd-small.webp', w: 937, h: 914, height: 0.5 },
+  pumpkinB: { file: 'phase1/props/pumpkin-herd-medium.webp', w: 951, h: 934, height: 0.75 },
+  pumpkinC: { file: 'phase1/props/pumpkin-herd-large.webp', w: 972, h: 930, height: 1.05 },
+  featherTemp: { file: 'phase1/props/glide-feather.webp', w: 641, h: 1123, height: 0.7 },
+  hatchClosed: { file: 'phase1/props/hatch-closed.webp', w: 951, h: 653, width: 1.6 },
+  hatchOpen: { file: 'phase1/props/hatch-open.webp', w: 977, h: 927, width: 1.6 },
+  shelf: { file: 'phase1/props/shelf-platform.webp', w: 1241, h: 519, width: 2.4 },
 };
 
 function worldSize(spec: FrameSpec): { w: number; h: number } {

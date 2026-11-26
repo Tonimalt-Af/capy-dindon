@@ -26,6 +26,27 @@ test('loads, reaches the camp, and clears a challenge', async ({ page }, info) =
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('opens the three Archipel courses', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  await page.goto('/capy-dindon/?nosw=1');
+  await page.getByTestId('btn-play').click();
+  await page.getByTestId('skip-intro').click();
+  await expect(page.getByTestId('hub')).toBeVisible();
+  for (const id of ['glands', 'pantry', 'ruee'] as const) {
+    await page.evaluate((level) => window.__CAPY__?.startChallenge(level), id);
+    await expect(page.getByTestId(`challenge-${id}`)).toBeVisible();
+    const state = await page.evaluate(() => window.__CAPY__?.getState());
+    expect(state?.scene).toBe(id);
+    await page.evaluate(() => window.__CAPY__?.goToHub());
+    await expect(page.getByTestId('hub')).toBeVisible();
+  }
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('asks for landscape in portrait', async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1100 });
   await page.goto('/capy-dindon/?nosw=1');

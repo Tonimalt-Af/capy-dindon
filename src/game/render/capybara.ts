@@ -123,6 +123,7 @@ const POSE = {
   sleep: { file: 'characters/capy-sleep.webp', w: 926, h: 420, foot: 18 },
   plume: { file: 'characters/capyplume.webp', w: 926, h: 700, foot: 17 },
   legend: { file: 'characters/capydindon.webp', w: 928, h: 779, foot: 18 },
+  glide: { file: 'phase1/characters/capy-glide.webp', w: 881, h: 690, foot: 140 },
 } as const;
 
 type Pose = keyof typeof POSE;
@@ -131,6 +132,8 @@ export class Capybara {
   readonly root = new THREE.Group();
   stage: 0 | 1 = 0;
   featherGrow = 0;
+  /** Airborne pose from the temporary chase feather. */
+  glide = false;
   calm = false;
   private readonly form: Form;
   private readonly pose = new THREE.Group();
@@ -200,6 +203,7 @@ export class Capybara {
     const evolved = this.form === 'legend' || this.stage === 1 || this.featherGrow >= 0.7;
     let pose: Pose;
     if (this.form === 'legend') pose = 'legend';
+    else if (this.glide && !motion.grounded) pose = 'glide';
     else if (evolved) pose = 'plume';
     else if (this.mood === 'sleep') pose = 'sleep';
     else if (!motion.grounded) pose = 'jump';

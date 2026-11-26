@@ -22,7 +22,7 @@ interface CapyApi {
   startNewGame: () => void;
   skipIntro: () => void;
   goToHub: () => void;
-  startChallenge: (id: 'glands' | 'pantry' | 'parade') => void;
+  startChallenge: (id: 'glands' | 'pantry' | 'parade' | 'ruee') => void;
   completeCurrentChallenge: () => void;
   showcase: (shot: string) => void;
   startDemo: () => void;
