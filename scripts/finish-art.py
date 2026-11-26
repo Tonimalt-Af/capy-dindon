@@ -26,6 +26,7 @@ TOUCHUP = "finish-art-2"
 SUN = "finish-art-3"
 FRINGE = "finish-art-4"
 LIP = "finish-art-5"
+HALO = "finish-art-6"
 ART_W = 1280
 ART_H = 720
 
@@ -321,6 +322,51 @@ def feather_halo(arr: np.ndarray) -> np.ndarray:
     return painted
 
 
+def erode(mask: np.ndarray, radius: int) -> np.ndarray:
+    return ~dilate(~mask, radius)
+
+
+def radial_halo(arr: np.ndarray) -> np.ndarray:
+    """Soft gold falloff around the Éveil disc. The rim is a one-pixel step."""
+    out = arr.copy()
+    rgb = out[:, :, :3].astype(np.float32)
+    alpha = out[:, :, 3]
+    lum = rgb.mean(axis=2)
+    height, width = alpha.shape
+    yy, xx = np.mgrid[0:height, 0:width]
+    seed = (lum > 230) & (alpha > 240) & (yy > 200) & (yy < 480) & (xx > 250) & (xx < 1050)
+    if not seed.any():
+        return out
+    cy = float(yy[seed].mean())
+    cx = float(xx[seed].mean())
+    radius = np.hypot(xx - cx, yy - cy)
+    core = (radius < 148) & (lum > 185) & (alpha > 140)
+    inner = erode(core, 8)
+    if not inner.any():
+        return out
+    dist = np.full(alpha.shape, 999, np.int16)
+    dist[inner] = 0
+    current = inner
+    reach = 30
+    for step in range(1, reach + 1):
+        grown = dilate(current, 1)
+        dist[grown & ~current] = step
+        current = grown
+    band = (dist > 0) & (dist <= reach) & (radius < 148 + reach) & ((alpha < 48) | core)
+    t = 1.0 - dist.astype(np.float32) / reach
+    t = t * t * (3.0 - 2.0 * t)
+    gold = np.array([255.0, 236.0, 186.0], dtype=np.float32)
+    out[:, :, :3][band] = gold
+    out[:, :, 3][band] = np.clip(t[band] * 200, 0, 200).astype(np.uint8)
+    return out
+
+
+def soften_eveil_halo(root: Path) -> None:
+    path = root / "scenes" / "eveil" / "mid.webp"
+    save(path, radial_halo(load(path)))
+    print("softened eveil/mid halo")
+
+
 def soften_fringe(root: Path) -> None:
     camp = root / "scenes" / "camp-des-nuages" / "mid.webp"
     save(camp, clear_dark_fringe(load(camp)))
@@ -418,9 +464,24 @@ def main() -> None:
     parser.add_argument("--touchup", action="store_true", help="Lawn, parade grain, and sun core on a finish-art-1 tree")
     parser.add_argument("--sun", action="store_true", help="Pull the remaining pale Éveil core to gold")
     parser.add_argument("--fringe", action="store_true", help="Clear the camp fringe, feather the Éveil halo, and fade the glands grass lip")
+    parser.add_argument("--halo", action="store_true", help="Replace the hard Éveil disc rim with a radial gold falloff")
     args = parser.parse_args()
     root = Path(args.root)
     stamp_path = root / "finish.json"
+    if args.halo:
+        if not stamp_path.exists():
+            raise SystemExit("No finish.json. Run the full finish first.")
+        stamp = json.loads(stamp_path.read_text())
+        version = stamp.get("version")
+        if version == HALO:
+            print("halo already softened")
+            return
+        if version != LIP:
+            raise SystemExit(f"Refusing halo pass on stamp {version}.")
+        soften_eveil_halo(root)
+        stamp["version"] = HALO
+        stamp_path.write_text(json.dumps(stamp, indent=2) + "\n")
+        return
     if args.fringe:
         if not stamp_path.exists():
             raise SystemExit("No finish.json. Run the full finish first.")
