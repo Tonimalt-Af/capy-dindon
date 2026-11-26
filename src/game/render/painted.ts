@@ -5,6 +5,7 @@ import {
   ART_W,
   FRAME,
   GRASS_FRAC,
+  chaseGroundLayout,
   islandGrass,
   LAYER_BOUNDS,
   MID_DY,
@@ -649,8 +650,82 @@ export class PaintedBackdrop {
   }
 }
 
+const CHASE_SLAB_W = 420;
+const CHASE_WIN_Y = 150;
+const CHASE_WIN_H = 290;
+const CHASE_MASK_X = 1100;
+const CHASE_MASK_W = 180;
+const CHASE_MASK_SHIFT = 183;
+const CHASE_MASK_FADE = 48;
+
+let chaseGroundTex: THREE.CanvasTexture | null = null;
+let chaseGroundMat: THREE.ShaderMaterial | null = null;
+
+/**
+ * One slab for every chase island: the plate's left tip and flat meadow,
+ * with the plate's right tip as the silhouette. A repeated crop left a
+ * straight seam, and a mid-column crop left a vertical cut.
+ */
+function chaseGroundTexture(): THREE.Texture {
+  if (chaseGroundTex) return chaseGroundTex;
+  const canvas = document.createElement('canvas');
+  canvas.width = CHASE_SLAB_W;
+  canvas.height = CHASE_WIN_H;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 1;
+  texture.needsUpdate = true;
+  chaseGroundTex = texture;
+  void loadImage(artUrl(`${sceneDir('la-ruee')}/ground.webp`)).then((image) => {
+    const probe = document.createElement('canvas');
+    probe.width = image.width;
+    probe.height = image.height;
+    const source = probe.getContext('2d', { willReadFrequently: true });
+    const dest = canvas.getContext('2d');
+    if (!source || !dest) return;
+    source.drawImage(image, 0, 0);
+    const slab = source.getImageData(0, CHASE_WIN_Y, CHASE_SLAB_W, CHASE_WIN_H);
+    const tip = source.getImageData(CHASE_MASK_X, CHASE_WIN_Y + CHASE_MASK_SHIFT, CHASE_MASK_W, CHASE_WIN_H);
+    const origin = CHASE_SLAB_W - CHASE_MASK_W;
+    for (let y = 0; y < CHASE_WIN_H; y++) {
+      for (let x = 0; x < CHASE_MASK_W; x++) {
+        const fade = Math.min(1, x / CHASE_MASK_FADE);
+        const mask = tip.data[(y * CHASE_MASK_W + x) * 4 + 3] / 255;
+        const index = ((y * CHASE_SLAB_W + origin + x) * 4) + 3;
+        slab.data[index] = Math.round(slab.data[index] * ((1 - fade) + fade * mask));
+      }
+    }
+    dest.putImageData(slab, 0, 0);
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.needsUpdate = true;
+  });
+  return texture;
+}
+
+function chaseGroundMaterial(): THREE.ShaderMaterial {
+  chaseGroundMat ??= texturedQuad(chaseGroundTexture(), true, false);
+  return chaseGroundMat;
+}
+
+function chaseIsland(walkWidth: number, lift: number): THREE.Group {
+  const layout = chaseGroundLayout(walkWidth);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(layout.width, layout.height), chaseGroundMaterial());
+  mesh.position.y = lift - layout.height * (0.5 - layout.grassFromTop);
+  mesh.renderOrder = -8;
+  const group = new THREE.Group();
+  group.add(mesh);
+  return group;
+}
+
 /** A painted island whose walkable grass is `walkWidth` wide and whose grass line is local y = `lift`. */
 export function groundIsland(scene: ArtScene, walkWidth: number, lift = 0): THREE.Group {
+  if (scene === 'la-ruee') return chaseIsland(walkWidth, lift);
   const span = groundSpanFor(scene, walkWidth);
   const height = planeHeight(span);
   const rect = LAYER_BOUNDS[scene].ground;

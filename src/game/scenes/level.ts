@@ -105,7 +105,7 @@ export class LevelScene implements Scene {
     }
     if (level.shelf) {
       const board = paintedProp('shelf', light);
-      const tabletop = 18 / 519;
+      const tabletop = 17 / 513;
       board.root.position.set(level.shelf.x, level.shelf.top - board.height * (1 - tabletop), 0.18);
       root.add(board.root);
     }

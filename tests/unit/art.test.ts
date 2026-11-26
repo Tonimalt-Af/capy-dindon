@@ -4,6 +4,7 @@ import {
   GRASS_FRAC,
   LAYER_BOUNDS,
   MID_DY,
+  chaseGroundLayout,
   fitFrame,
   imageCover,
   midOffsetY,
@@ -83,6 +84,18 @@ describe('painted layout', () => {
       expect(lookY + halfH).toBeLessThanOrEqual(cover.top + 0.05);
       expect(lookY - halfH).toBeGreaterThanOrEqual(cover.bottom - 0.05);
     }
+  });
+
+  it('keeps chase island tips on the mesh instead of slicing the plate', () => {
+    for (const width of [6, 6.6, 7.4, 14]) {
+      const layout = chaseGroundLayout(width);
+      expect(layout.width).toBe(width);
+      expect(layout.height).toBeGreaterThan(3);
+      expect(layout.height).toBeLessThan(6);
+      expect(layout.grassFromTop).toBeGreaterThan(0.05);
+      expect(layout.grassFromTop).toBeLessThan(0.2);
+    }
+    expect(chaseGroundLayout(14).height).toBeCloseTo(chaseGroundLayout(6).height, 5);
   });
 
   it('bridges the walk frames with idle', () => {

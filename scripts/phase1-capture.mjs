@@ -48,15 +48,25 @@ async function openScene(page, name, testid) {
 
 async function sampleFps(page) {
   const samples = [];
-  for (let i = 0; i < 8; i++) {
-    await page.waitForTimeout(250);
+  for (let i = 0; i < 10; i++) {
+    await page.waitForTimeout(400);
     const state = await page.evaluate(() => window.__CAPY__?.getState());
     if (state) samples.push(state);
   }
-  const fps = samples.map((row) => row.fps).sort((a, b) => a - b);
-  const mid = fps[Math.floor(fps.length / 2)] ?? 0;
-  const last = samples.at(-1);
-  return { fps: mid, frameMs: last?.frameMs, renderMs: last?.renderMs, dpr: last?.dpr, quality: last?.quality, draws: last?.draws };
+  const settled = samples.slice(2);
+  const median = (rows, key) => {
+    const sorted = rows.map((row) => row[key]).filter((value) => value != null).sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)] ?? 0;
+  };
+  const last = settled.at(-1) ?? samples.at(-1);
+  return {
+    fps: median(settled, 'fps'),
+    frameMs: median(settled, 'frameMs'),
+    renderMs: last?.renderMs,
+    dpr: last?.dpr,
+    quality: last?.quality,
+    draws: last?.draws,
+  };
 }
 
 const browser = await chromium.launch({
@@ -104,18 +114,24 @@ async function film(id, seconds) {
   });
   await context.addInitScript((data) => localStorage.setItem('capydindon.save.v1', JSON.stringify(data)), save);
   const page = await context.newPage();
+  const started = Date.now();
   await page.goto(base);
   await page.waitForSelector('[data-testid="title-screen"]');
   await ready(page);
   await page.evaluate((level) => window.__CAPY__?.playCourse(level), id);
   await page.waitForSelector(`[data-testid="challenge-${id}"]`);
+  const lead = (Date.now() - started) / 1000 + 0.15;
   await page.waitForTimeout(seconds * 1000);
   const video = page.video();
   await context.close();
   const saved = await video?.path();
   if (!saved) return;
   const dest = path.join(out, `phase1-${id}-play.webm`);
-  const trimmed = spawnSync('ffmpeg', ['-y', '-ss', '1.2', '-i', saved, '-c', 'copy', dest], { encoding: 'utf8' });
+  const trimmed = spawnSync('ffmpeg', [
+    '-y', '-ss', lead.toFixed(2), '-t', String(seconds), '-i', saved,
+    '-an', '-c:v', 'libvpx-vp9', '-crf', '34', '-b:v', '0', '-cpu-used', '4', '-deadline', 'good',
+    dest,
+  ], { encoding: 'utf8' });
   if (trimmed.status !== 0) {
     fs.copyFileSync(saved, dest);
     console.log('video copy', dest, trimmed.stderr?.slice(-200));

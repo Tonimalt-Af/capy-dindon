@@ -123,7 +123,7 @@ const POSE = {
   sleep: { file: 'characters/capy-sleep.webp', w: 926, h: 420, foot: 18 },
   plume: { file: 'characters/capyplume.webp', w: 926, h: 700, foot: 17 },
   legend: { file: 'characters/capydindon.webp', w: 928, h: 779, foot: 18 },
-  glide: { file: 'phase1/characters/capy-glide.webp', w: 881, h: 690, foot: 140 },
+  glide: { file: 'phase1/characters/capy-glide.webp', w: 886, h: 690, foot: 140 },
 } as const;
 
 type Pose = keyof typeof POSE;

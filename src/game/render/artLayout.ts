@@ -116,7 +116,8 @@ export const LAYER_BOUNDS: Record<ArtScene, Record<'far' | 'ground' | 'mid', PxR
   },
   'la-ruee': {
     far: { x0: 19, y0: 116, x1: 1256, y1: 474 },
-    ground: { x0: 40, y0: 165, x1: 460, y1: 400 },
+    // Full plate. Islands do not crop this: a slice at x=460 was a hard vertical cut.
+    ground: { x0: 18, y0: 165, x1: 1268, y1: 600 },
     mid: { x0: 17, y0: 35, x1: 1248, y1: 656 },
   },
 };
@@ -164,6 +165,28 @@ export function fitFrame(opts: {
   const maxX = opts.cover.right - halfW - 0.08;
   const x = minX > maxX ? (opts.cover.left + opts.cover.right) / 2 : Math.min(maxX, Math.max(minX, opts.focusX));
   return { distance, x };
+}
+
+/**
+ * Chase islands use one continuous slab of the ground plate: the painted
+ * left tip, the flat plateau, and the plate's own right tip. Cropping that
+ * plate at a mid column left a hard vertical cut on every island.
+ * Rock thickness stays constant; a longer island stretches the slab so the
+ * tips stay at the mesh edges instead of the texture running out.
+ */
+const CHASE_SLAB_H = 290;
+const CHASE_GRASS_ROW = 32;
+
+export function chaseGroundLayout(walkWidth: number): {
+  width: number;
+  height: number;
+  grassFromTop: number;
+} {
+  return {
+    width: walkWidth,
+    height: CHASE_SLAB_H / 64,
+    grassFromTop: CHASE_GRASS_ROW / CHASE_SLAB_H,
+  };
 }
 
 /** World rectangle of a full scene plate whose grass row sits on `groundY`. */
